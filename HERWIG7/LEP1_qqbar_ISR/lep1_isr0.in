@@ -1,0 +1,26 @@
+# -*- ThePEG-repository -*-
+##################################################
+# Herwig 7.1.5 runcard for e+e- -> Z -> hadrons at LEP1
+# sqrt(s) = 91.188 GeV, ISR OFF (no QED radiation from initial state)
+# Override EECollider.in default: set QEDPartner FFonly to disable II QED ISR
+##################################################
+
+read snippets/EECollider.in
+
+cd /Herwig/MatrixElements
+insert SubProcess:MatrixElements 0 MEee2gZ2qq
+
+cd /Herwig/Generators
+set EventGenerator:EventHandler:LuminosityFunction:Energy 91.188
+
+# Disable ISR completely: override particle-level lepton PDF with NoPDF
+# so the parton extractor treats electrons as unresolved (x=1, no ISR photons)
+set /Herwig/Particles/e-:PDF /Herwig/Partons/NoPDF
+set /Herwig/Particles/e+:PDF /Herwig/Partons/NoPDF
+set /Herwig/Shower/ShowerHandler:DoISR No
+
+# HepMC2 output
+read snippets/HepMC.in
+set /Herwig/Analysis/HepMC:PrintEvent 500000
+
+saverun lep1_isr0 EventGenerator

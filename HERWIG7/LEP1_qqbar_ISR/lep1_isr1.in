@@ -1,0 +1,27 @@
+# -*- ThePEG-repository -*-
+##################################################
+# Herwig 7.1.5 runcard for e+e- -> Z -> hadrons at LEP1
+# sqrt(s) = 91.188 GeV, ISR ON
+# Uses Matchbox framework with lepton structure functions for proper ISR
+##################################################
+
+read snippets/EECollider.in
+
+cd /Herwig/MatrixElements
+insert SubProcess:MatrixElements 0 MEee2gZ2qq
+
+cd /Herwig/Generators
+set EventGenerator:EventHandler:LuminosityFunction:Energy 91.188
+
+# ISR is ON by default: the electron/positron particles have LeptonPDF
+# assigned in PDF.in, so the EEExtractor uses the lepton structure function.
+# The shower also needs LeptonPDF to be consistent.
+set /Herwig/Shower/ShowerHandler:PDFA /Herwig/Partons/LeptonPDF
+set /Herwig/Shower/ShowerHandler:PDFB /Herwig/Partons/LeptonPDF
+set /Herwig/Shower/ShowerHandler:DoISR Yes
+
+# HepMC2 output
+read snippets/HepMC.in
+set /Herwig/Analysis/HepMC:PrintEvent 500000
+
+saverun lep1_isr1 EventGenerator
