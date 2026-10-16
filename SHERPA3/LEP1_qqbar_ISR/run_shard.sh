@@ -5,14 +5,15 @@
 # VARIANT=keepall preloads diag_tag/libRemnants (keeps the ~2.5% of ISR-on events Sherpa's beam-blob momentum check
 # rejects, and lists their 0-based event indices in tags_*.txt next to the ntuple).
 set -u
-RUN=/home/badea/code/sherpa305/run
-OUTDIR=${OUTDIR:-/home/badea/code/sherpa305/qqbar}
+: "${MCF_PREFIX:?set MCF_PREFIX to the install root}"
+RUN=$MCF_PREFIX/sherpa305/run   # cards, hepmc3ToRoot and diag_tag/ (made by setup.sh); work directories
+OUTDIR=${OUTDIR:-$MCF_PREFIX/sherpa305/qqbar}
 NEVENTS=${NEVENTS:-500000}
 VARIANT=${VARIANT:-}
 S="$1"
 J="$2"
-export PATH=/home/badea/code/sherpa305/bin:$PATH
-export LD_LIBRARY_PATH=/home/badea/code/sherpa305/lib64:/home/badea/code/local/lib64
+export PATH=$MCF_PREFIX/sherpa305/bin:$PATH
+export LD_LIBRARY_PATH=$MCF_PREFIX/sherpa305/lib64:$MCF_PREFIX/local/lib64
 TAG=${VARIANT:+${VARIANT}_}
 PRELOAD=""
 [ "$VARIANT" = keepall ] && PRELOAD="$RUN/diag_tag/libRemnants.so.0.0.0"

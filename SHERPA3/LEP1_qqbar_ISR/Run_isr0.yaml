@@ -1,6 +1,6 @@
 # Sherpa 3.0.5 runcard for e+e- -> Z -> hadrons at LEP1 (91.188 GeV)
 # ISR OFF: YFS switched off, no QED ISR
-# Mirrors ../../sherpa226/src/Run_isr0.dat except for the ISR mechanism.
+# Mirrors SHERPA2/LEP1_qqbar_ISR/Run_isr0.dat except for the ISR mechanism.
 EVENTS: 500000
 
 BEAMS: [11, -11]
