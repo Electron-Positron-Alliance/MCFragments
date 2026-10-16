@@ -1,0 +1,74 @@
+From a4aad63419d108b691be7ff93df960c9cc4b8434 Mon Sep 17 00:00:00 2001
+From: badeaa3 <badeaa3@gmail.com>
+Date: Fri, 2 Oct 2026 04:51:17 -0500
+Subject: [PATCH 1/4] Build the KORALZ 4.04 demos with gfortran and validate
+ them against the 1999 references
+
+The flattened korz_new/koralz_source/ bundle stops with "ERROR IN THB" (TAUOLA) because it
+is out of sync with the source tree (9167 lines differ from the same assembly rebuilt from
+the current files). Building from the tree through the original makefiles, with
+-fno-automatic -finit-local-zero standing in for HP f77 -K, reproduces all four reference
+outputs in korz_new/february/prod1:
+- demo1 (qq, ITFIN=501, KEYRAD=0): every number within 5e-13.
+- demo/demo2/dm (YFS3 KEYRAD=12): cross sections identical to all printed digits, event
+  records within print rounding (<=2e-5). Only the "wt in KarLud" diagnostic histogram
+  differs, by edge-bin assignment of weights at 1.0 (same entries, same sum).
+---
+ build_gfortran.sh   | 19 +++++++++++++++++++
+ validate_numdiff.py | 18 ++++++++++++++++++
+ 2 files changed, 37 insertions(+)
+ create mode 100755 build_gfortran.sh
+ create mode 100644 validate_numdiff.py
+
+diff --git a/build_gfortran.sh b/build_gfortran.sh
+new file mode 100755
+index 0000000..518a4ed
+--- /dev/null
++++ b/build_gfortran.sh
+@@ -0,0 +1,19 @@
++#!/bin/sh
++# Build the KORALZ 4.04 demos from the source tree with gfortran and check them against the
++# 1999 reference outputs in korz_new/february/prod1. -fno-automatic -finit-local-zero stand in
++# for HP f77 -K (static, zero-initialised storage). Do not build from korz_new/koralz_source/:
++# that flattened bundle is out of sync with the sources and fails TAUOLA's THB check.
++set -e
++FF="-O -std=legacy -fno-automatic -finit-local-zero -w"
++cd "$(dirname "$0")/korale-exp-final/korz_new/february"
++for p in dm demo demo1 demo2; do
++  make -s F77=gfortran FFLAGS="$FF" LDFLAGS="-O" COMMAND=$p.exe COMMAND_OBJECTS=$p.o
++done
++[ "$1" = "--validate" ] || exit 0
++for p in dm:dm demo:DEMO demo1:DEMO1 demo2:DEMO2; do
++  exe=${p%%:*}; ref=${p##*:}
++  mkdir -p run_$exe
++  (cd run_$exe && ../$exe.exe > $exe.out 2>&1)
++  echo "== $exe vs prod1/$ref.out"
++  python3 ../../../validate_numdiff.py run_$exe/$exe.out prod1/$ref.out 1e-5
++done
+diff --git a/validate_numdiff.py b/validate_numdiff.py
+new file mode 100644
+index 0000000..472472e
+--- /dev/null
++++ b/validate_numdiff.py
+@@ -0,0 +1,18 @@
++"""Compare a KORALZ demo output to its 1999 reference, number by number. Event-record lines skip the
++last column (mass from E^2-p^2, cancellation noise). Usage: validate_numdiff.py ours ref [reltol]"""
++import re, sys
++NUM = re.compile(r"[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[EeDd][-+]?\d+)?")
++REC = re.compile(r"^\s*(\d+\s+\S+\s+\d+\s+-?\d+\s+\d+\s+\d+\s+\d+|pho|sum|tau|qf|pf|xx)\b", re.I)
++def toks(l): return [float(t.replace("D","E")) for t in NUM.findall(l)]
++a = open(sys.argv[1], errors="replace").read().splitlines(); b = open(sys.argv[2], errors="replace").read().splitlines()
++bad = []; worst = 0; nrec = 0; recworst = 0
++for i,(x,y) in enumerate(zip(a,b)):
++    tx, ty = toks(x), toks(y)
++    if len(tx) != len(ty): bad.append((i+1, None, x, y)); continue
++    rels = [abs(p-q)/max(abs(p),abs(q),1e-30) for p,q in zip(tx,ty)]
++    if REC.match(x):
++        nrec += 1; recworst = max([recworst]+[abs(p-q) for p,q in zip(tx,ty)][:-1]); continue   # abs, all but mass col
++    r = max(rels, default=0); worst = max(worst, r)
++    if r > float(sys.argv[3]): bad.append((i+1, r, x, y))
++print(f"lines {len(a)}/{len(b)}; event-record lines {nrec} (worst abs diff excl. mass col {recworst:.1e}); other lines worst rel diff {worst:.2e}; flagged {len(bad)}")
++for i,r,x,y in bad[:15]: print(f"{i} rel={r}\n  ours: {x.strip()}\n  ref : {y.strip()}")
+-- 
+2.52.0
+

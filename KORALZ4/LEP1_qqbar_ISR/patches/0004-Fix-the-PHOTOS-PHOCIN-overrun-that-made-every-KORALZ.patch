@@ -1,0 +1,2356 @@
+From 7a4b5c68f1dcfff5a5307b3a9498e4dafd8c5946 Mon Sep 17 00:00:00 2001
+From: badeaa3 <badeaa3@gmail.com>
+Date: Fri, 2 Oct 2026 06:45:05 -0500
+Subject: [PATCH 4/4] Fix the PHOTOS PHOCIN overrun that made every KORALZ run
+ identical, and seed YFS3's MARRAN
+
+PHOCIN sets QEDRAD(I)=.TRUE. for I=1..NMXHEP=10000, but /PHOQED/ is QEDRAD(2000) everywhere
+(photos.f, tauola.f FILHEP), so it wrote 32 kB past the common. In the MainKoralzHepMC layout
+that covered /RASET1/, the RANMAR/MARRAN state, after the driver had seeded it: all 20
+production shards were the same events. Loop to 2000. Separately, YFS3's MARRAN shares
+/RASET1/ and re-seeds it to 54217137 on its first call unless MARINI ran, so the driver now
+calls MARINI as well as RMARIN.
+
+Evidence: two seeds now give different events, and the same seed gives byte-identical events
+in two link layouts (with/without an extra /RASET1/ declaration), ISR on and off. The pilot
+cross sections were biased by the corrupted generator (ISR off +0.4%, ~30 sigma) and are
+redone. demo1 (no radiation) still matches its reference to 5e-13; the radiative demos'
+references were made before this fix and now agree statistically (xs_tot pulls 0.06, -0.01,
+0.94).
+---
+ ProdRun/MainKoralzHepMC.f     |   3 +
+ ProdRun/pilot/p_q1_isr0.log   |  11 +-
+ ProdRun/pilot/p_q1_isr1.log   | 273 ++++++++++++++++-----------------
+ ProdRun/pilot/p_q2_isr0.log   |  11 +-
+ ProdRun/pilot/p_q2_isr1.log   | 281 +++++++++++++++++-----------------
+ ProdRun/pilot/p_q3_isr0.log   |  11 +-
+ ProdRun/pilot/p_q3_isr1.log   | 268 +++++++++++++++-----------------
+ ProdRun/pilot/p_q4_isr0.log   |  11 +-
+ ProdRun/pilot/p_q4_isr1.log   | 257 ++++++++++++++-----------------
+ ProdRun/pilot/p_q5_isr0.log   |  11 +-
+ ProdRun/pilot/p_q5_isr1.log   | 269 +++++++++++++++-----------------
+ build_gfortran.sh             |   9 +-
+ korale-exp-final/lib/photos.f |   2 +-
+ 13 files changed, 679 insertions(+), 738 deletions(-)
+
+diff --git a/ProdRun/MainKoralzHepMC.f b/ProdRun/MainKoralzHepMC.f
+index 4248bcd..7b9a801 100644
+--- a/ProdRun/MainKoralzHepMC.f
++++ b/ProdRun/MainKoralzHepMC.f
+@@ -27,7 +27,10 @@ C KKMCee constituent quark masses d,u,s,c,b (xpar 516..556; d,u "for comparison
+       READ(ARG,*) ISEED
+       IF (KFQ.LT.1.OR.KFQ.GT.5) STOP 'PDGQ must be 1..5'
+       IF (ISR.NE.0.AND.ISR.NE.1) STOP 'ISR must be 0 or 1'
++C TAUOLA RANMAR and YFS3 MARRAN share /RASET1/; MARRAN would re-seed it to 54217137 on its
++C first call (YFS3, ISR on) unless MARINI is called first. Seed both.
+       CALL RMARIN(ISEED,0,0)
++      CALL MARINI(ISEED,0,0)
+       DO I=1,40
+         XPR(I)=0
+         NPR(I)=0
+diff --git a/ProdRun/pilot/p_q1_isr0.log b/ProdRun/pilot/p_q1_isr0.log
+index 68495ea..870aecc 100644
+--- a/ProdRun/pilot/p_q1_isr0.log
++++ b/ProdRun/pilot/p_q1_isr0.log
+@@ -1,4 +1,5 @@
+   RANMAR INITIALIZED:       7001           0         0
++marran initialized: ij,kl,ijkl,ntot,ntot2=         0      7001      7001         0         0
+ 
+ 
+ 
+@@ -184,8 +185,8 @@
+  K                         =======================================         K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+- SIGT=   817.51495615462704      ERR=   7.0154639319159337E-006
+- AWT=   1.0755836419009952      +-   1.2003165069720699E-004
++ SIGT=   817.15564421818817      ERR=   5.0160985317284477E-005
++ AWT=   1.0717396070823650      +-   1.1624854124870513E-004
+ 
+ 
+ 
+@@ -196,8 +197,8 @@
+  K                         ==========      Z. Was        =========         K
+  K                         ============= FINAL REPORT ============         K
+  K               50000     Number of generated events                      K
+- K         9.184733391     Total cross sections in nanobarns               K
+- K         0.001104340     Absolute error                                  K
+- K         0.000120236     Relative error                                  K
++ K         9.147885323     Total cross sections in nanobarns               K
++ K         0.001158205     Absolute error                                  K
++ K         0.000126609     Relative error                                  K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+diff --git a/ProdRun/pilot/p_q1_isr1.log b/ProdRun/pilot/p_q1_isr1.log
+index 477439f..3fbdd41 100644
+--- a/ProdRun/pilot/p_q1_isr1.log
++++ b/ProdRun/pilot/p_q1_isr1.log
+@@ -1,4 +1,5 @@
+   RANMAR INITIALIZED:       7011           0         0
++marran initialized: ij,kl,ijkl,ntot,ntot2=         0      7011      7011         0         0
+ 
+ 
+ 
+@@ -228,29 +229,25 @@
+  *                        initialize KarLud  ENDed                         *
+  ***************************************************************************
+ 
+-marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137         0         0
+  ===========  YFS3ff  ======================>           1
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1   -21.30509933815221   40.30803448704614    0.37784935257159   45.59379959106445    0.08299999684143   13
+- qf2    21.30509933815221  -40.30803448704614   -0.37784935257159   45.59379959106445    0.08299999684143   13
+- sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
+- ===========  YFS3ff  ======================>           1
+- pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+- pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    14.39810911314328    9.67583611224143  -42.16468097407757   45.59379959106445    0.08299999683766   13
+- qf2   -14.39810911314328   -9.67583611224143   42.16468097407757   45.59379959106445    0.08299999683766   13
+- sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
++ qf1   -45.36632020836262    0.02720095425493   -4.53374373336478   45.59238390761008    0.08299999684280   13
++ qf2    45.36632002417020   -0.02720105061576    4.53059963930877   45.59207118045594    0.08299999684006   13
++ pho     0.00000018419241    0.00000009636083    0.00314409405601    0.00314409406288    0.00000000002629
++ sum    -0.00000000000000   -0.00000000000000   -0.00000000000000   91.18759918212889   91.18759918212889
+  ===========  YFSPRO  ======================>           1
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    14.39810911314328    9.67583611224143  -42.16468097407757   45.59379959106445    0.08299999683766   13
+- qf2   -14.39810911314328   -9.67583611224143   42.16468097407757   45.59379959106445    0.08299999683766   13
+- sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
++ qf1   -45.36632020836262    0.02720095425493   -4.53374373336478   45.59238390761008    0.08299999684280   13
++ qf2    45.36632002417020   -0.02720105061576    4.53059963930877   45.59207118045594    0.08299999684006   13
++ pho     0.00000018419241    0.00000009636083    0.00314409405601    0.00314409406288    0.00000000002629
++ sum    -0.00000000000000   -0.00000000000000   -0.00000000000000   91.18759918212889   91.18759918212889
+  =========== *momini* ======================>           1
+  qf1     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+  qf2     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+- sum     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
++ pho     0.00000018419241    0.00000009636083    0.00314409405601    0.00314409406288    0.00000000002629
++ sum     0.00000018419241    0.00000009636083    0.00314409405601    0.00314409406288    0.00000000002629
+  =========== *momfin* ======================>           1
+  qf1     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+  qf2     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+@@ -258,46 +255,34 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ===========  YFS3ff  ======================>           2
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1     3.52590281312280  -45.39385427699481    0.54443483373252   45.53391368042379    0.08299999684431   13
+- qf2    -3.52520656958025   45.39307249483623   -0.53403271688292   45.53295720488454    0.08299999684717   13
+- pho    -0.00000399461343    0.00000272767533   -0.06556022626769    0.06556022644613    0.00000000108505
+- pho    -0.00069141293166    0.00077811624899    0.05438881297729    0.05439877290728    0.00000000045275
+- pho    -0.00000083599747    0.00000093823426    0.00076929644080    0.00076929746718    0.00000000000894
+- sum    -0.00000000000000   -0.00000000000001   -0.00000000000000   91.18759918212891   91.18759918212891
+- ===========  YFS3ff  ======================>           2
+- pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+- pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1     8.59889311516735   40.41595266242459  -19.04573896806473   45.49876101891734    0.08299999683895   13
+- qf2    -8.59889538247077  -40.41595321958911   18.72862239038944   45.36693137173776    0.08299999683638   13
+- pho     0.00000154139662    0.00000268122610    0.31951168404113    0.31951168405610    0.00000000368859
+- pho     0.00000072590680   -0.00000212406158   -0.00239510636584    0.00239510741769    0.00000000003597
+- sum    -0.00000000000000    0.00000000000000   -0.00000000000000   91.18759918212891   91.18759918212891
++ qf1    20.00060329421197   40.97022693113533   -0.45171365875333   45.59379959106445    0.08299999684109   13
++ qf2   -20.00060329421197  -40.97022693113533    0.45171365875333   45.59379959106445    0.08299999684109   13
++ sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
+  ===========  YFS3ff  ======================>           2
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    15.80412257967780  -18.10621526821260  -38.33996557576476   45.25002951604161    0.08299999683064   13
+- qf2   -15.80376562882785   18.10563396575843   38.70987909535545   45.56352288760667    0.08299999683253   13
+- pho    -0.00035693378602    0.00058129319698   -0.37197983631495    0.37198046175627    0.00000000657774
+- pho    -0.00000001706393    0.00000000925719    0.00206631672425    0.00206631672434    0.00000000001878
+- sum    -0.00000000000000    0.00000000000000   -0.00000000000000   91.18759918212889   91.18759918212889
++ qf1    13.40263241134898  -18.55223277098137   39.43211950837186   45.59292526548843    0.08299999684126   13
++ qf2   -13.40263409790730   18.55223099912057  -39.41918040844552   45.58173481648289    0.08299999684434   13
++ pho     0.00000168655833    0.00000177186080   -0.01293909992634    0.01293910015758    0.00000000008048
++ sum    -0.00000000000000   -0.00000000000000   -0.00000000000000   91.18759918212891   91.18759918212891
+   generation finished 
+ 1
+       7          wt in KarLud                                                                    
+            nent            sum           bmin           bmax
+-         225575    0.21444E+06    0.00000E+00    0.19882E+06
++         226011    0.21492E+06    0.00000E+00    0.19948E+06
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.95063E+00
+-  0.0000   0.3173D+04 0                                                       I
+-  0.1000   0.1039D+04 0                                                       I
+-  0.2000   0.1227D+04 0                                                       I
+-  0.3000   0.1414D+04 0                                                       I
+-  0.4000   0.1593D+04 0                                                       I
+-  0.5000   0.1935D+04 0                                                       I
+-  0.6000   0.2383D+04 0                                                       I
+-  0.7000   0.3443D+04 0                                                       I
+-  0.8000   0.5983D+04 0X                                                      I
+-  0.9000   0.1988D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  1.0000   0.4567D+04 0X                                                      I
++    0.00000E+00    0.00000E+00    0.95095E+00
++  0.0000   0.3174D+04 0                                                       I
++  0.1000   0.1050D+04 0                                                       I
++  0.2000   0.1199D+04 0                                                       I
++  0.3000   0.1356D+04 0                                                       I
++  0.4000   0.1643D+04 0                                                       I
++  0.5000   0.1950D+04 0                                                       I
++  0.6000   0.2372D+04 0                                                       I
++  0.7000   0.3368D+04 0                                                       I
++  0.8000   0.5890D+04 0X                                                      I
++  0.9000   0.1995D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  1.0000   0.4530D+04 0X                                                      I
+   1.1000   0.0000D+00 0                                                       I
+   1.2000   0.0000D+00 0                                                       I
+   1.3000   0.0000D+00 0                                                       I
+@@ -344,32 +329,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  *                          window a                                       *
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   59    0.9506294E+00    0.000364626    0.1000000E+01
++   59    0.9509483E+00    0.000363317    0.1000000E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      225575        4567           0         766        2266
++      226011        4530           0         747        2244
+  *                1                 total no of events       nevtot     a0 *
+  *                0                 wt<0        events       nevneg     a1 *
+  *     580.59874954                 xs_cru vesko  [R]        xcvesk     a2 *
+- *     579.14183910  +- 0.02912964  xs_est vesko  [R]        xsve       a3 *
++ *     579.14935756  +- 0.02869751  xs_est vesko  [R]        xsve       a3 *
+  *     578.92901570  +- 0.00817172  xs_est gauss  [R]        xcgaus     a4 *
+- *       0.00036762  +- 0.00005130  xcve/xcgs-1                         a5 *
+- *       0.95062940  +- 0.00036463      <wt>                 wtkarl     a6 *
+- *     551.93423951  +- 0.20124945  sigma_prim    [R]        xskarl     a7 *
++ *       0.00038060  +- 0.00005055  xcve/xcgs-1                         a5 *
++ *       0.95094829  +- 0.00036332      <wt>                 wtkarl     a6 *
++ *     552.11938632  +- 0.20059451  sigma_prim    [R]        xskarl     a7 *
+  ***************************************************************************
+ 
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   79    0.1033445E+01    0.000705580    0.1962742E+01
++   79    0.1033200E+01    0.000703157    0.1962700E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      225575       93279           0           0        2266
++      226011       93319           0           0        2244
+ 1
+       5          wt yfs3    nphot.ne.0                                                           
+            nent            sum           bmin           bmax
+-         225575    0.23312E+06    0.00000E+00    0.49137E+05
++         226011    0.23351E+06    0.00000E+00    0.49118E+05
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.10334E+01
++    0.00000E+00    0.00000E+00    0.10332E+01
+  -1.0000   0.0000D+00 0                                                       I
+  -0.9000   0.0000D+00 0                                                       I
+  -0.8000   0.0000D+00 0                                                       I
+@@ -380,26 +365,26 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  -0.3000   0.0000D+00 0                                                       I
+  -0.2000   0.0000D+00 0                                                       I
+  -0.1000   0.0000D+00 0                                                       I
+- -0.0000   0.3223D+04 0XXX                                                    I
+-  0.1000   0.1154D+04 0X                                                      I
+-  0.2000   0.1248D+04 0X                                                      I
+-  0.3000   0.1326D+04 0X                                                      I
+-  0.4000   0.1697D+04 0X                                                      I
+-  0.5000   0.2130D+04 0XX                                                     I
+-  0.6000   0.3198D+04 0XXX                                                    I
+-  0.7000   0.3286D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                  I
+-  0.8000   0.4914D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  0.9000   0.2921D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                      I
+-  1.0000   0.2284D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXX                             I
+-  1.1000   0.1914D+05 0XXXXXXXXXXXXXXXXXXXXX                                  I
+-  1.2000   0.1657D+05 0XXXXXXXXXXXXXXXXXX                                     I
+-  1.3000   0.8523D+04 0XXXXXXXXX                                              I
+-  1.4000   0.7087D+04 0XXXXXXXX                                               I
+-  1.5000   0.6577D+04 0XXXXXXX                                                I
+-  1.6000   0.6111D+04 0XXXXXX                                                 I
+-  1.7000   0.5728D+04 0XXXXXX                                                 I
+-  1.8000   0.5176D+04 0XXXXX                                                  I
+-  1.9000   0.2643D+04 0XXX                                                    I
++ -0.0000   0.3214D+04 0XXX                                                    I
++  0.1000   0.1120D+04 0X                                                      I
++  0.2000   0.1245D+04 0X                                                      I
++  0.3000   0.1362D+04 0X                                                      I
++  0.4000   0.1684D+04 0X                                                      I
++  0.5000   0.2148D+04 0XX                                                     I
++  0.6000   0.3169D+04 0XXX                                                    I
++  0.7000   0.3319D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                  I
++  0.8000   0.4912D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  0.9000   0.2912D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                      I
++  1.0000   0.2281D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXX                             I
++  1.1000   0.1921D+05 0XXXXXXXXXXXXXXXXXXXXX                                  I
++  1.2000   0.1668D+05 0XXXXXXXXXXXXXXXXXXX                                    I
++  1.3000   0.8588D+04 0XXXXXXXXX                                              I
++  1.4000   0.7291D+04 0XXXXXXXX                                               I
++  1.5000   0.6678D+04 0XXXXXXX                                                I
++  1.6000   0.5997D+04 0XXXXXX                                                 I
++  1.7000   0.5724D+04 0XXXXXX                                                 I
++  1.8000   0.5051D+04 0XXXXX                                                  I
++  1.9000   0.2609D+04 0XX                                                     I
+   2.0000   0.0000D+00 0                                                       I
+   2.1000   0.0000D+00 0                                                       I
+   2.2000   0.0000D+00 0                                                       I
+@@ -435,10 +420,10 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                         yfs3  output - window a                         *
+  *      91.18759918                 cms energy total         cmsene     a0 *
+- *     600.01662914  +- 0.42335957  xs_tot mc r-units        xsmc       a1 *
+- *       6.26735467                 xs_tot    nanob.         xsmcnb     a3 *
+- *       0.00442212                 absolute error           erabs2     a4 *
+- *       0.00070558                 relative error           erel       a5 *
++ *     599.87463897  +- 0.42180575  xs_tot mc r-units        xsmc       a1 *
++ *       6.26587154                 xs_tot    nanob.         xsmcnb     a3 *
++ *       0.00440589                 absolute error           erabs2     a4 *
++ *       0.00070316                 relative error           erel       a5 *
+  *                2                 total no of events       nevtot     a6 *
+  *                1                 accepted    events       nevacc     a7 *
+  *                0                 wt<0        events       nevneg     a8 *
+@@ -452,32 +437,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                       yfs3   output - window b                          *
+  *                          x-sections in r-units                          *
+- *     600.00174036  +- 0.42334952            x-section     o(alf2)     b1 *
+- *     599.23054665  +- 0.42278274            x-section     o(alf1)     b2 *
+- *     570.94593347  +- 0.40078085            x-section     o(alf0)     b3 *
+- *       0.00128697  +- 0.00000189    (o(alf2)-o(alf1))    /o(alf1)     b4 *
+- *       0.04953992  +- 0.00004922    (o(alf1)-o(alf0))    /o(alf0)     b5 *
++ *     599.85987036  +- 0.42179514            x-section     o(alf2)     b1 *
++ *     599.08733316  +- 0.42124095            x-section     o(alf1)     b2 *
++ *     570.82766128  +- 0.39936648            x-section     o(alf0)     b3 *
++ *       0.00128952  +- 0.00000255    (o(alf2)-o(alf1))    /o(alf1)     b4 *
++ *       0.04950649  +- 0.00004978    (o(alf1)-o(alf0))    /o(alf0)     b5 *
+  ***************************************************************************
+ 
+- ypar(20-22)=   6.2673546708146262        7.0557972959307271E-004   600.01662914411361     
++ ypar(20-22)=   6.2658715405855991        7.0315650534322075E-004   599.87463896686279     
+   generation finished 
+ 1
+       7          wt in KarLud                                                                    
+            nent            sum           bmin           bmax
+-         225575    0.21444E+06    0.00000E+00    0.19882E+06
++         226011    0.21492E+06    0.00000E+00    0.19948E+06
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.95063E+00
+-  0.0000   0.3173D+04 0                                                       I
+-  0.1000   0.1039D+04 0                                                       I
+-  0.2000   0.1227D+04 0                                                       I
+-  0.3000   0.1414D+04 0                                                       I
+-  0.4000   0.1593D+04 0                                                       I
+-  0.5000   0.1935D+04 0                                                       I
+-  0.6000   0.2383D+04 0                                                       I
+-  0.7000   0.3443D+04 0                                                       I
+-  0.8000   0.5983D+04 0X                                                      I
+-  0.9000   0.1988D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  1.0000   0.4567D+04 0X                                                      I
++    0.00000E+00    0.00000E+00    0.95095E+00
++  0.0000   0.3174D+04 0                                                       I
++  0.1000   0.1050D+04 0                                                       I
++  0.2000   0.1199D+04 0                                                       I
++  0.3000   0.1356D+04 0                                                       I
++  0.4000   0.1643D+04 0                                                       I
++  0.5000   0.1950D+04 0                                                       I
++  0.6000   0.2372D+04 0                                                       I
++  0.7000   0.3368D+04 0                                                       I
++  0.8000   0.5890D+04 0X                                                      I
++  0.9000   0.1995D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  1.0000   0.4530D+04 0X                                                      I
+   1.1000   0.0000D+00 0                                                       I
+   1.2000   0.0000D+00 0                                                       I
+   1.3000   0.0000D+00 0                                                       I
+@@ -524,32 +509,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  *                          window a                                       *
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   59    0.9506294E+00    0.000364626    0.1000000E+01
++   59    0.9509483E+00    0.000363317    0.1000000E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      225575        4567           0         766        2266
++      226011        4530           0         747        2244
+  *                1                 total no of events       nevtot     a0 *
+  *                0                 wt<0        events       nevneg     a1 *
+  *     580.59874954                 xs_cru vesko  [R]        xcvesk     a2 *
+- *     579.14183910  +- 0.02912964  xs_est vesko  [R]        xsve       a3 *
++ *     579.14935756  +- 0.02869751  xs_est vesko  [R]        xsve       a3 *
+  *     578.92901570  +- 0.00817172  xs_est gauss  [R]        xcgaus     a4 *
+- *       0.00036762  +- 0.00005130  xcve/xcgs-1                         a5 *
+- *       0.95062940  +- 0.00036463      <wt>                 wtkarl     a6 *
+- *     551.93423951  +- 0.20124945  sigma_prim    [R]        xskarl     a7 *
++ *       0.00038060  +- 0.00005055  xcve/xcgs-1                         a5 *
++ *       0.95094829  +- 0.00036332      <wt>                 wtkarl     a6 *
++ *     552.11938632  +- 0.20059451  sigma_prim    [R]        xskarl     a7 *
+  ***************************************************************************
+ 
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   79    0.1033445E+01    0.000705580    0.1962742E+01
++   79    0.1033200E+01    0.000703157    0.1962700E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      225575       93279           0           0        2266
++      226011       93319           0           0        2244
+ 1
+       5          wt yfs3    nphot.ne.0                                                           
+            nent            sum           bmin           bmax
+-         225575    0.23312E+06    0.00000E+00    0.49137E+05
++         226011    0.23351E+06    0.00000E+00    0.49118E+05
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.10334E+01
++    0.00000E+00    0.00000E+00    0.10332E+01
+  -1.0000   0.0000D+00 0                                                       I
+  -0.9000   0.0000D+00 0                                                       I
+  -0.8000   0.0000D+00 0                                                       I
+@@ -560,26 +545,26 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  -0.3000   0.0000D+00 0                                                       I
+  -0.2000   0.0000D+00 0                                                       I
+  -0.1000   0.0000D+00 0                                                       I
+- -0.0000   0.3223D+04 0XXX                                                    I
+-  0.1000   0.1154D+04 0X                                                      I
+-  0.2000   0.1248D+04 0X                                                      I
+-  0.3000   0.1326D+04 0X                                                      I
+-  0.4000   0.1697D+04 0X                                                      I
+-  0.5000   0.2130D+04 0XX                                                     I
+-  0.6000   0.3198D+04 0XXX                                                    I
+-  0.7000   0.3286D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                  I
+-  0.8000   0.4914D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  0.9000   0.2921D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                      I
+-  1.0000   0.2284D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXX                             I
+-  1.1000   0.1914D+05 0XXXXXXXXXXXXXXXXXXXXX                                  I
+-  1.2000   0.1657D+05 0XXXXXXXXXXXXXXXXXX                                     I
+-  1.3000   0.8523D+04 0XXXXXXXXX                                              I
+-  1.4000   0.7087D+04 0XXXXXXXX                                               I
+-  1.5000   0.6577D+04 0XXXXXXX                                                I
+-  1.6000   0.6111D+04 0XXXXXX                                                 I
+-  1.7000   0.5728D+04 0XXXXXX                                                 I
+-  1.8000   0.5176D+04 0XXXXX                                                  I
+-  1.9000   0.2643D+04 0XXX                                                    I
++ -0.0000   0.3214D+04 0XXX                                                    I
++  0.1000   0.1120D+04 0X                                                      I
++  0.2000   0.1245D+04 0X                                                      I
++  0.3000   0.1362D+04 0X                                                      I
++  0.4000   0.1684D+04 0X                                                      I
++  0.5000   0.2148D+04 0XX                                                     I
++  0.6000   0.3169D+04 0XXX                                                    I
++  0.7000   0.3319D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                  I
++  0.8000   0.4912D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  0.9000   0.2912D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                      I
++  1.0000   0.2281D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXX                             I
++  1.1000   0.1921D+05 0XXXXXXXXXXXXXXXXXXXXX                                  I
++  1.2000   0.1668D+05 0XXXXXXXXXXXXXXXXXXX                                    I
++  1.3000   0.8588D+04 0XXXXXXXXX                                              I
++  1.4000   0.7291D+04 0XXXXXXXX                                               I
++  1.5000   0.6678D+04 0XXXXXXX                                                I
++  1.6000   0.5997D+04 0XXXXXX                                                 I
++  1.7000   0.5724D+04 0XXXXXX                                                 I
++  1.8000   0.5051D+04 0XXXXX                                                  I
++  1.9000   0.2609D+04 0XX                                                     I
+   2.0000   0.0000D+00 0                                                       I
+   2.1000   0.0000D+00 0                                                       I
+   2.2000   0.0000D+00 0                                                       I
+@@ -615,10 +600,10 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                         yfs3  output - window a                         *
+  *      91.18759918                 cms energy total         cmsene     a0 *
+- *     600.01662914  +- 0.42335957  xs_tot mc r-units        xsmc       a1 *
+- *       6.26735467                 xs_tot    nanob.         xsmcnb     a3 *
+- *       0.00442212                 absolute error           erabs2     a4 *
+- *       0.00070558                 relative error           erel       a5 *
++ *     599.87463897  +- 0.42180575  xs_tot mc r-units        xsmc       a1 *
++ *       6.26587154                 xs_tot    nanob.         xsmcnb     a3 *
++ *       0.00440589                 absolute error           erabs2     a4 *
++ *       0.00070316                 relative error           erel       a5 *
+  *                2                 total no of events       nevtot     a6 *
+  *                1                 accepted    events       nevacc     a7 *
+  *                0                 wt<0        events       nevneg     a8 *
+@@ -632,23 +617,23 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                       yfs3   output - window b                          *
+  *                          x-sections in r-units                          *
+- *     600.00174036  +- 0.42334952            x-section     o(alf2)     b1 *
+- *     599.23054665  +- 0.42278274            x-section     o(alf1)     b2 *
+- *     570.94593347  +- 0.40078085            x-section     o(alf0)     b3 *
+- *       0.00128697  +- 0.00000189    (o(alf2)-o(alf1))    /o(alf1)     b4 *
+- *       0.04953992  +- 0.00004922    (o(alf1)-o(alf0))    /o(alf0)     b5 *
++ *     599.85987036  +- 0.42179514            x-section     o(alf2)     b1 *
++ *     599.08733316  +- 0.42124095            x-section     o(alf1)     b2 *
++ *     570.82766128  +- 0.39936648            x-section     o(alf0)     b3 *
++ *       0.00128952  +- 0.00000255    (o(alf2)-o(alf1))    /o(alf1)     b4 *
++ *       0.04950649  +- 0.00004978    (o(alf1)-o(alf0))    /o(alf0)     b5 *
+  ***************************************************************************
+ 
+- ypar(20-22)=   6.2673546708146262        7.0557972959307271E-004   600.01662914411361     
++ ypar(20-22)=   6.2658715405855991        7.0315650534322075E-004   599.87463896686279     
+  ==========================================
+  ========= WEIGHTS IN EVENTE ==============
+  ==========================================
+  =======================WMONIT========================
+    ID           AVERWT         ERRELA            WWMAX
+-   13    0.1072090E+01    0.000164713    0.1154276E+01
++   13    0.1071845E+01    0.000164469    0.1154276E+01
+  -----------------------------------------------------------
+       NEVTOT      NEVACC      NEVNEG      NEVOVE      NEVZER
+-       93279       50000           0           0           0
++       93319       50000           0           0           0
+ 
+ 
+ 
+@@ -659,8 +644,8 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  K                         ==========      Z. Was        =========         K
+  K                         ============= FINAL REPORT ============         K
+  K               50000     Number of generated events                      K
+- K         6.719258308     Total cross sections in nanobarns               K
+- K         0.004868441     Absolute error                                  K
+- K         0.000724550     Relative error                                  K
++ K         6.716128826     Total cross sections in nanobarns               K
++ K         0.004849953     Absolute error                                  K
++ K         0.000722135     Relative error                                  K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+diff --git a/ProdRun/pilot/p_q2_isr0.log b/ProdRun/pilot/p_q2_isr0.log
+index e00efbe..85f260b 100644
+--- a/ProdRun/pilot/p_q2_isr0.log
++++ b/ProdRun/pilot/p_q2_isr0.log
+@@ -1,4 +1,5 @@
+   RANMAR INITIALIZED:       7002           0         0
++marran initialized: ij,kl,ijkl,ntot,ntot2=         0      7002      7002         0         0
+ 
+ 
+ 
+@@ -184,8 +185,8 @@
+  K                         =======================================         K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+- SIGT=   638.32282273452654      ERR=   6.2364980054282080E-006
+- AWT=   1.0713632757321827      +-   8.8455545380550582E-005
++ SIGT=   637.99017272015385      ERR=   4.6541305810598396E-005
++ AWT=   1.0657964077054738      +-   8.9416466085385468E-005
+ 
+ 
+ 
+@@ -196,8 +197,8 @@
+  K                         ==========      Z. Was        =========         K
+  K                         ============= FINAL REPORT ============         K
+  K               50000     Number of generated events                      K
+- K         7.143380642     Total cross sections in nanobarns               K
+- K         0.000633440     Absolute error                                  K
+- K         0.000088675     Relative error                                  K
++ K         7.102560043     Total cross sections in nanobarns               K
++ K         0.000715965     Absolute error                                  K
++ K         0.000100804     Relative error                                  K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+diff --git a/ProdRun/pilot/p_q2_isr1.log b/ProdRun/pilot/p_q2_isr1.log
+index 0fdec55..b7c44e1 100644
+--- a/ProdRun/pilot/p_q2_isr1.log
++++ b/ProdRun/pilot/p_q2_isr1.log
+@@ -1,4 +1,5 @@
+   RANMAR INITIALIZED:       7012           0         0
++marran initialized: ij,kl,ijkl,ntot,ntot2=         0      7012      7012         0         0
+ 
+ 
+ 
+@@ -228,29 +229,47 @@
+  *                        initialize KarLud  ENDed                         *
+  ***************************************************************************
+ 
+-marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137         0         0
+  ===========  YFS3ff  ======================>           1
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1   -21.30508339611848   40.30800432562633    0.37784906983707   45.59379959106445    0.10000000149096   13
+- qf2    21.30508339611848  -40.30800432562633   -0.37784906983707   45.59379959106445    0.10000000149096   13
+- sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
++ qf1    38.49162941362378  -19.80383080417293  -14.31441186765535   45.59286826416196    0.10000000149266   13
++ qf2   -38.49162899468872   19.80383000161321   14.31442980552943   45.59287319368328    0.10000000148812   13
++ pho     0.00000001597542    0.00000004083807   -0.00093783086927    0.00093783087030    0.00000000001684
++ pho    -0.00000043491049    0.00000076172165    0.00091989299518    0.00091989341337    0.00000000000610
++ sum    -0.00000000000000   -0.00000000000000   -0.00000000000000   91.18759918212891   91.18759918212891
+  ===========  YFS3ff  ======================>           1
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    14.39809833942487    9.67582887207309  -42.16464942337905   45.59379959106445    0.10000000148911   13
+- qf2   -14.39809833942487   -9.67582887207309   42.16464942337905   45.59379959106445    0.10000000148911   13
++ qf1   -41.38301878589359   -9.24909618224497  -16.75162531066480   45.59305840334957    0.10000000149607   13
++ qf2    41.38308733945215    9.24938204131718   16.75258941598264   45.59353285315537    0.10000000149494   13
++ pho    -0.00006855355856   -0.00028585907222   -0.00096410531784    0.00100792562397    0.00000000002001
++ sum     0.00000000000000   -0.00000000000000   -0.00000000000000   91.18759918212891   91.18759918212891
++ ===========  YFS3ff  ======================>           1
++ pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
++ pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
++ qf1   -22.25733951678307   16.42968619798283  -36.09515994944982   45.47740452913079    0.10000000149266   13
++ qf2    22.25734240883517  -16.42968395360096   36.22490400848740   45.58045059390889    0.10000000148669   13
++ pho    -0.00000289205210   -0.00000224438186   -0.12974405903758    0.12974405908922    0.00000000152787
++ sum    -0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212889   91.18759918212889
++ ===========  YFS3ff  ======================>           1
++ pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
++ pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
++ qf1     1.13121692276927   33.68328988330232  -30.70309925684613   45.59094178743162    0.10000000148817   13
++ qf2    -1.13113991844489  -33.68424256756708   30.70600368680025   45.59359974031318    0.10000000149336   13
++ pho    -0.00007700432439    0.00095268426476   -0.00290442995412    0.00305765438411    0.00000000002986
+  sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
+  ===========  YFSPRO  ======================>           1
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    14.39809833942487    9.67582887207309  -42.16464942337905   45.59379959106445    0.10000000148911   13
+- qf2   -14.39809833942487   -9.67582887207309   42.16464942337905   45.59379959106445    0.10000000148911   13
++ qf1     1.13121692276927   33.68328988330232  -30.70309925684613   45.59094178743162    0.10000000148817   13
++ qf2    -1.13113991844489  -33.68424256756708   30.70600368680025   45.59359974031318    0.10000000149336   13
++ pho    -0.00007700432439    0.00095268426476   -0.00290442995412    0.00305765438411    0.00000000002986
+  sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
+  =========== *momini* ======================>           1
+  qf1     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+  qf2     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+- sum     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
++ pho    -0.00007700432439    0.00095268426476   -0.00290442995412    0.00305765438411    0.00000000002986
++ sum    -0.00007700432439    0.00095268426476   -0.00290442995412    0.00305765438411    0.00000000002986
+  =========== *momfin* ======================>           1
+  qf1     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+  qf2     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+@@ -258,46 +277,28 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ===========  YFS3ff  ======================>           2
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1     3.52573953781433  -45.39160009071679    0.54460101667785   45.53168993516199    0.10000000149081   13
+- qf2    -3.52501744064439   45.39078927862344   -0.53381263778535   45.53069794353916    0.10000000148919   13
+- pho    -0.00000414294550    0.00000282896216   -0.06799467564920    0.06799467583426    0.00000000065636
+- pho    -0.00071708718386    0.00080701005746    0.05640843401357    0.05641876378587    0.00000000077781
+- pho    -0.00000086704058    0.00000097307374    0.00079786274313    0.00079786380762    0.00000000001478
+- sum    -0.00000000000000    0.00000000000001   -0.00000000000000   91.18759918212889   91.18759918212889
+- ===========  YFS3ff  ======================>           2
+- pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+- pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1     8.59768905273000   40.41029360605202  -19.04931484627246   45.49503799852766    0.10000000149039   13
+- qf2    -8.59769140885104  -40.41029418504247   18.71977578503000   45.35804426036910    0.10000000148897   13
+- pho     0.00000160177812    0.00000278625841    0.33202799168300    0.33202799169855    0.00000000555262
+- pho     0.00000075434292   -0.00000220726795   -0.00248893044054    0.00248893153359    0.00000000006008
+- sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
+- ===========  YFS3ff  ======================>           2
+- pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+- pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    15.80150221656557  -18.10321666300875  -38.32618557570842   45.23627335039771    0.10000000148783   13
+- qf2   -15.80113098198552   18.10261209918019   38.71090153903656   45.56231121320042    0.10000000149010   13
+- pho    -0.00037121683329    0.00060455420094   -0.38686496569493    0.38686561616388    0.00000000583032
+- pho    -0.00000001774676    0.00000000962763    0.00214900236680    0.00214900236689    0.00000000000758
+- sum    -0.00000000000000    0.00000000000000   -0.00000000000000   91.18759918212891   91.18759918212891
++ qf1   -10.58500314662271    0.63076248284214   44.34010170794052   45.59051186809139    0.10000000149124   13
++ qf2    10.58476006682314   -0.62990110774888  -44.34340948545292   45.59366058864556    0.10000000149025   13
++ pho     0.00024307979957   -0.00086137509326    0.00330777751240    0.00342672539195    0.00000000002228
++ sum    -0.00000000000000   -0.00000000000000   -0.00000000000000   91.18759918212889   91.18759918212889
+   generation finished 
+ 1
+       7          wt in KarLud                                                                    
+            nent            sum           bmin           bmax
+-         227709    0.21616E+06    0.00000E+00    0.20044E+06
++         227296    0.21561E+06    0.00000E+00    0.19974E+06
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.94926E+00
+-  0.0000   0.3120D+04 0                                                       I
+-  0.1000   0.1121D+04 0                                                       I
+-  0.2000   0.1438D+04 0                                                       I
+-  0.3000   0.1481D+04 0                                                       I
+-  0.4000   0.1728D+04 0                                                       I
+-  0.5000   0.2037D+04 0                                                       I
+-  0.6000   0.2534D+04 0                                                       I
+-  0.7000   0.3411D+04 0                                                       I
+-  0.8000   0.6075D+04 0X                                                      I
+-  0.9000   0.2004D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  1.0000   0.4319D+04 0X                                                      I
++    0.00000E+00    0.00000E+00    0.94859E+00
++  0.0000   0.3160D+04 0                                                       I
++  0.1000   0.1155D+04 0                                                       I
++  0.2000   0.1368D+04 0                                                       I
++  0.3000   0.1578D+04 0                                                       I
++  0.4000   0.1765D+04 0                                                       I
++  0.5000   0.2112D+04 0                                                       I
++  0.6000   0.2455D+04 0                                                       I
++  0.7000   0.3538D+04 0                                                       I
++  0.8000   0.6134D+04 0X                                                      I
++  0.9000   0.1997D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  1.0000   0.4293D+04 0X                                                      I
+   1.1000   0.0000D+00 0                                                       I
+   1.2000   0.0000D+00 0                                                       I
+   1.3000   0.0000D+00 0                                                       I
+@@ -344,32 +345,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  *                          window a                                       *
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   59    0.9492626E+00    0.000367596    0.1000000E+01
++   59    0.9485941E+00    0.000370646    0.1000000E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      227709        4319           0        1499        2197
++      227296        4293           0        1467        2224
+  *                1                 total no of events       nevtot     a0 *
+  *                0                 wt<0        events       nevneg     a1 *
+  *     455.12318804                 xs_cru vesko  [R]        xcvesk     a2 *
+- *     453.98691732  +- 0.01998130  xs_est vesko  [R]        xsve       a3 *
++ *     453.94175108  +- 0.02139508  xs_est vesko  [R]        xsve       a3 *
+  *     453.80504616  +- 0.00637976  xs_est gauss  [R]        xcgaus     a4 *
+- *       0.00040077  +- 0.00004501  xcve/xcgs-1                         a5 *
+- *       0.94926257  +- 0.00036760      <wt>                 wtkarl     a6 *
+- *     432.03140779  +- 0.15881312  sigma_prim    [R]        xskarl     a7 *
++ *       0.00030124  +- 0.00004813  xcve/xcgs-1                         a5 *
++ *       0.94859408  +- 0.00037065      <wt>                 wtkarl     a6 *
++ *     431.72716206  +- 0.16001799  sigma_prim    [R]        xskarl     a7 *
+  ***************************************************************************
+ 
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   79    0.1030519E+01    0.000662660    0.1952624E+01
++   79    0.1029556E+01    0.000663873    0.1877369E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      227709       93670           0           0        2197
++      227296       93495           0           0        2224
+ 1
+       5          wt yfs3    nphot.ne.0                                                           
+            nent            sum           bmin           bmax
+-         227709    0.23466E+06    0.00000E+00    0.68202E+05
++         227296    0.23401E+06    0.00000E+00    0.68049E+05
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.10305E+01
++    0.00000E+00    0.00000E+00    0.10296E+01
+  -1.0000   0.0000D+00 0                                                       I
+  -0.9000   0.0000D+00 0                                                       I
+  -0.8000   0.0000D+00 0                                                       I
+@@ -380,26 +381,26 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  -0.3000   0.0000D+00 0                                                       I
+  -0.2000   0.0000D+00 0                                                       I
+  -0.1000   0.0000D+00 0                                                       I
+- -0.0000   0.3263D+04 0XX                                                     I
+-  0.1000   0.1512D+04 0X                                                      I
+-  0.2000   0.1400D+04 0X                                                      I
+-  0.3000   0.1424D+04 0X                                                      I
+-  0.4000   0.1676D+04 0X                                                      I
+-  0.5000   0.2111D+04 0X                                                      I
+-  0.6000   0.2988D+04 0XX                                                     I
+-  0.7000   0.9703D+04 0XXXXXXX                                                I
+-  0.8000   0.6820D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  0.9000   0.3082D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
+-  1.0000   0.2362D+05 0XXXXXXXXXXXXXXXXXXX                                    I
+-  1.1000   0.1989D+05 0XXXXXXXXXXXXXXXX                                       I
+-  1.2000   0.1704D+05 0XXXXXXXXXXXXX                                          I
++ -0.0000   0.3357D+04 0XX                                                     I
++  0.1000   0.1501D+04 0X                                                      I
++  0.2000   0.1417D+04 0X                                                      I
++  0.3000   0.1470D+04 0X                                                      I
++  0.4000   0.1657D+04 0X                                                      I
++  0.5000   0.2049D+04 0X                                                      I
++  0.6000   0.3136D+04 0XX                                                     I
++  0.7000   0.9416D+04 0XXXXXXX                                                I
++  0.8000   0.6805D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  0.9000   0.3088D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
++  1.0000   0.2377D+05 0XXXXXXXXXXXXXXXXXXX                                    I
++  1.1000   0.1978D+05 0XXXXXXXXXXXXXXXX                                       I
++  1.2000   0.1698D+05 0XXXXXXXXXXXXX                                          I
+   1.3000   0.1498D+05 0XXXXXXXXXXXX                                           I
+-  1.4000   0.7715D+04 0XXXXXX                                                 I
+-  1.5000   0.6550D+04 0XXXXX                                                  I
+-  1.6000   0.6037D+04 0XXXX                                                   I
+-  1.7000   0.5409D+04 0XXXX                                                   I
+-  1.8000   0.3357D+04 0XX                                                     I
+-  1.9000   0.3000D+01 0                                                       I
++  1.4000   0.7677D+04 0XXXXXX                                                 I
++  1.5000   0.6540D+04 0XXXXX                                                  I
++  1.6000   0.6016D+04 0XXXX                                                   I
++  1.7000   0.5303D+04 0XXXX                                                   I
++  1.8000   0.3318D+04 0XX                                                     I
++  1.9000   0.0000D+00 0                                                       I
+   2.0000   0.0000D+00 0                                                       I
+   2.1000   0.0000D+00 0                                                       I
+   2.2000   0.0000D+00 0                                                       I
+@@ -435,10 +436,10 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                         yfs3  output - window a                         *
+  *      91.18759918                 cms energy total         cmsene     a0 *
+- *     469.01323548  +- 0.31079624  xs_tot mc r-units        xsmc       a1 *
+- *       4.89898471                 xs_tot    nanob.         xsmcnb     a3 *
+- *       0.00324636                 absolute error           erabs2     a4 *
+- *       0.00066266                 relative error           erel       a5 *
++ *     468.57465663  +- 0.31107396  xs_tot mc r-units        xsmc       a1 *
++ *       4.89440362                 xs_tot    nanob.         xsmcnb     a3 *
++ *       0.00324926                 absolute error           erabs2     a4 *
++ *       0.00066387                 relative error           erel       a5 *
+  *                2                 total no of events       nevtot     a6 *
+  *                1                 accepted    events       nevacc     a7 *
+  *                0                 wt<0        events       nevneg     a8 *
+@@ -452,32 +453,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                       yfs3   output - window b                          *
+  *                          x-sections in r-units                          *
+- *     469.00152273  +- 0.31078931            x-section     o(alf2)     b1 *
+- *     468.38905199  +- 0.31043278            x-section     o(alf1)     b2 *
+- *     446.66114355  +- 0.29310697            x-section     o(alf0)     b3 *
+- *       0.00130761  +- 0.00000372    (o(alf2)-o(alf1))    /o(alf1)     b4 *
+- *       0.04864517  +- 0.00006013    (o(alf1)-o(alf0))    /o(alf0)     b5 *
++ *     468.56297334  +- 0.31106677            x-section     o(alf2)     b1 *
++ *     467.95014948  +- 0.31071889            x-section     o(alf1)     b2 *
++ *     446.24762840  +- 0.29347134            x-section     o(alf0)     b3 *
++ *       0.00130959  +- 0.00000394    (o(alf2)-o(alf1))    /o(alf1)     b4 *
++ *       0.04863336  +- 0.00006081    (o(alf1)-o(alf0))    /o(alf0)     b5 *
+  ***************************************************************************
+ 
+- ypar(20-22)=   4.8989847101776594        6.6265984871554089E-004   469.01323547519627     
++ ypar(20-22)=   4.8944036218119464        6.6387278860044691E-004   468.57465662600384     
+   generation finished 
+ 1
+       7          wt in KarLud                                                                    
+            nent            sum           bmin           bmax
+-         227709    0.21616E+06    0.00000E+00    0.20044E+06
++         227296    0.21561E+06    0.00000E+00    0.19974E+06
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.94926E+00
+-  0.0000   0.3120D+04 0                                                       I
+-  0.1000   0.1121D+04 0                                                       I
+-  0.2000   0.1438D+04 0                                                       I
+-  0.3000   0.1481D+04 0                                                       I
+-  0.4000   0.1728D+04 0                                                       I
+-  0.5000   0.2037D+04 0                                                       I
+-  0.6000   0.2534D+04 0                                                       I
+-  0.7000   0.3411D+04 0                                                       I
+-  0.8000   0.6075D+04 0X                                                      I
+-  0.9000   0.2004D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  1.0000   0.4319D+04 0X                                                      I
++    0.00000E+00    0.00000E+00    0.94859E+00
++  0.0000   0.3160D+04 0                                                       I
++  0.1000   0.1155D+04 0                                                       I
++  0.2000   0.1368D+04 0                                                       I
++  0.3000   0.1578D+04 0                                                       I
++  0.4000   0.1765D+04 0                                                       I
++  0.5000   0.2112D+04 0                                                       I
++  0.6000   0.2455D+04 0                                                       I
++  0.7000   0.3538D+04 0                                                       I
++  0.8000   0.6134D+04 0X                                                      I
++  0.9000   0.1997D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  1.0000   0.4293D+04 0X                                                      I
+   1.1000   0.0000D+00 0                                                       I
+   1.2000   0.0000D+00 0                                                       I
+   1.3000   0.0000D+00 0                                                       I
+@@ -524,32 +525,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  *                          window a                                       *
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   59    0.9492626E+00    0.000367596    0.1000000E+01
++   59    0.9485941E+00    0.000370646    0.1000000E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      227709        4319           0        1499        2197
++      227296        4293           0        1467        2224
+  *                1                 total no of events       nevtot     a0 *
+  *                0                 wt<0        events       nevneg     a1 *
+  *     455.12318804                 xs_cru vesko  [R]        xcvesk     a2 *
+- *     453.98691732  +- 0.01998130  xs_est vesko  [R]        xsve       a3 *
++ *     453.94175108  +- 0.02139508  xs_est vesko  [R]        xsve       a3 *
+  *     453.80504616  +- 0.00637976  xs_est gauss  [R]        xcgaus     a4 *
+- *       0.00040077  +- 0.00004501  xcve/xcgs-1                         a5 *
+- *       0.94926257  +- 0.00036760      <wt>                 wtkarl     a6 *
+- *     432.03140779  +- 0.15881312  sigma_prim    [R]        xskarl     a7 *
++ *       0.00030124  +- 0.00004813  xcve/xcgs-1                         a5 *
++ *       0.94859408  +- 0.00037065      <wt>                 wtkarl     a6 *
++ *     431.72716206  +- 0.16001799  sigma_prim    [R]        xskarl     a7 *
+  ***************************************************************************
+ 
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   79    0.1030519E+01    0.000662660    0.1952624E+01
++   79    0.1029556E+01    0.000663873    0.1877369E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      227709       93670           0           0        2197
++      227296       93495           0           0        2224
+ 1
+       5          wt yfs3    nphot.ne.0                                                           
+            nent            sum           bmin           bmax
+-         227709    0.23466E+06    0.00000E+00    0.68202E+05
++         227296    0.23401E+06    0.00000E+00    0.68049E+05
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.10305E+01
++    0.00000E+00    0.00000E+00    0.10296E+01
+  -1.0000   0.0000D+00 0                                                       I
+  -0.9000   0.0000D+00 0                                                       I
+  -0.8000   0.0000D+00 0                                                       I
+@@ -560,26 +561,26 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  -0.3000   0.0000D+00 0                                                       I
+  -0.2000   0.0000D+00 0                                                       I
+  -0.1000   0.0000D+00 0                                                       I
+- -0.0000   0.3263D+04 0XX                                                     I
+-  0.1000   0.1512D+04 0X                                                      I
+-  0.2000   0.1400D+04 0X                                                      I
+-  0.3000   0.1424D+04 0X                                                      I
+-  0.4000   0.1676D+04 0X                                                      I
+-  0.5000   0.2111D+04 0X                                                      I
+-  0.6000   0.2988D+04 0XX                                                     I
+-  0.7000   0.9703D+04 0XXXXXXX                                                I
+-  0.8000   0.6820D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  0.9000   0.3082D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
+-  1.0000   0.2362D+05 0XXXXXXXXXXXXXXXXXXX                                    I
+-  1.1000   0.1989D+05 0XXXXXXXXXXXXXXXX                                       I
+-  1.2000   0.1704D+05 0XXXXXXXXXXXXX                                          I
++ -0.0000   0.3357D+04 0XX                                                     I
++  0.1000   0.1501D+04 0X                                                      I
++  0.2000   0.1417D+04 0X                                                      I
++  0.3000   0.1470D+04 0X                                                      I
++  0.4000   0.1657D+04 0X                                                      I
++  0.5000   0.2049D+04 0X                                                      I
++  0.6000   0.3136D+04 0XX                                                     I
++  0.7000   0.9416D+04 0XXXXXXX                                                I
++  0.8000   0.6805D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  0.9000   0.3088D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
++  1.0000   0.2377D+05 0XXXXXXXXXXXXXXXXXXX                                    I
++  1.1000   0.1978D+05 0XXXXXXXXXXXXXXXX                                       I
++  1.2000   0.1698D+05 0XXXXXXXXXXXXX                                          I
+   1.3000   0.1498D+05 0XXXXXXXXXXXX                                           I
+-  1.4000   0.7715D+04 0XXXXXX                                                 I
+-  1.5000   0.6550D+04 0XXXXX                                                  I
+-  1.6000   0.6037D+04 0XXXX                                                   I
+-  1.7000   0.5409D+04 0XXXX                                                   I
+-  1.8000   0.3357D+04 0XX                                                     I
+-  1.9000   0.3000D+01 0                                                       I
++  1.4000   0.7677D+04 0XXXXXX                                                 I
++  1.5000   0.6540D+04 0XXXXX                                                  I
++  1.6000   0.6016D+04 0XXXX                                                   I
++  1.7000   0.5303D+04 0XXXX                                                   I
++  1.8000   0.3318D+04 0XX                                                     I
++  1.9000   0.0000D+00 0                                                       I
+   2.0000   0.0000D+00 0                                                       I
+   2.1000   0.0000D+00 0                                                       I
+   2.2000   0.0000D+00 0                                                       I
+@@ -615,10 +616,10 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                         yfs3  output - window a                         *
+  *      91.18759918                 cms energy total         cmsene     a0 *
+- *     469.01323548  +- 0.31079624  xs_tot mc r-units        xsmc       a1 *
+- *       4.89898471                 xs_tot    nanob.         xsmcnb     a3 *
+- *       0.00324636                 absolute error           erabs2     a4 *
+- *       0.00066266                 relative error           erel       a5 *
++ *     468.57465663  +- 0.31107396  xs_tot mc r-units        xsmc       a1 *
++ *       4.89440362                 xs_tot    nanob.         xsmcnb     a3 *
++ *       0.00324926                 absolute error           erabs2     a4 *
++ *       0.00066387                 relative error           erel       a5 *
+  *                2                 total no of events       nevtot     a6 *
+  *                1                 accepted    events       nevacc     a7 *
+  *                0                 wt<0        events       nevneg     a8 *
+@@ -632,23 +633,23 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                       yfs3   output - window b                          *
+  *                          x-sections in r-units                          *
+- *     469.00152273  +- 0.31078931            x-section     o(alf2)     b1 *
+- *     468.38905199  +- 0.31043278            x-section     o(alf1)     b2 *
+- *     446.66114355  +- 0.29310697            x-section     o(alf0)     b3 *
+- *       0.00130761  +- 0.00000372    (o(alf2)-o(alf1))    /o(alf1)     b4 *
+- *       0.04864517  +- 0.00006013    (o(alf1)-o(alf0))    /o(alf0)     b5 *
++ *     468.56297334  +- 0.31106677            x-section     o(alf2)     b1 *
++ *     467.95014948  +- 0.31071889            x-section     o(alf1)     b2 *
++ *     446.24762840  +- 0.29347134            x-section     o(alf0)     b3 *
++ *       0.00130959  +- 0.00000394    (o(alf2)-o(alf1))    /o(alf1)     b4 *
++ *       0.04863336  +- 0.00006081    (o(alf1)-o(alf0))    /o(alf0)     b5 *
+  ***************************************************************************
+ 
+- ypar(20-22)=   4.8989847101776594        6.6265984871554089E-004   469.01323547519627     
++ ypar(20-22)=   4.8944036218119464        6.6387278860044691E-004   468.57465662600384     
+  ==========================================
+  ========= WEIGHTS IN EVENTE ==============
+  ==========================================
+  =======================WMONIT========================
+    ID           AVERWT         ERRELA            WWMAX
+-   13    0.1065993E+01    0.000128183    0.1144466E+01
++   13    0.1065941E+01    0.000128393    0.1138803E+01
+  -----------------------------------------------------------
+       NEVTOT      NEVACC      NEVNEG      NEVOVE      NEVZER
+-       93670       50000           0           0           0
++       93495       50000           0           0           0
+ 
+ 
+ 
+@@ -659,8 +660,8 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  K                         ==========      Z. Was        =========         K
+  K                         ============= FINAL REPORT ============         K
+  K               50000     Number of generated events                      K
+- K         5.222352505     Total cross sections in nanobarns               K
+- K         0.003524793     Absolute error                                  K
+- K         0.000674944     Relative error                                  K
++ K         5.217211723     Total cross sections in nanobarns               K
++ K         0.003527745     Absolute error                                  K
++ K         0.000676174     Relative error                                  K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+diff --git a/ProdRun/pilot/p_q3_isr0.log b/ProdRun/pilot/p_q3_isr0.log
+index f38ede9..e932be3 100644
+--- a/ProdRun/pilot/p_q3_isr0.log
++++ b/ProdRun/pilot/p_q3_isr0.log
+@@ -1,4 +1,5 @@
+   RANMAR INITIALIZED:       7003           0         0
++marran initialized: ij,kl,ijkl,ntot,ntot2=         0      7003      7003         0         0
+ 
+ 
+ 
+@@ -184,8 +185,8 @@
+  K                         =======================================         K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+- SIGT=   817.49686685649260      ERR=   7.0154639320366715E-006
+- AWT=   1.0755876641222315      +-   1.2003590832242815E-004
++ SIGT=   817.23371914272207      ERR=   4.2488604049474648E-005
++ AWT=   1.0718877621234109      +-   1.1588735274143157E-004
+ 
+ 
+ 
+@@ -196,8 +197,8 @@
+  K                         ==========      Z. Was        =========         K
+  K                         ============= FINAL REPORT ============         K
+  K               50000     Number of generated events                      K
+- K         9.184564590     Total cross sections in nanobarns               K
+- K         0.001104359     Absolute error                                  K
+- K         0.000120241     Relative error                                  K
++ K         9.150024414     Total cross sections in nanobarns               K
++ K         0.001129395     Absolute error                                  K
++ K         0.000123431     Relative error                                  K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+diff --git a/ProdRun/pilot/p_q3_isr1.log b/ProdRun/pilot/p_q3_isr1.log
+index ce96221..b076461 100644
+--- a/ProdRun/pilot/p_q3_isr1.log
++++ b/ProdRun/pilot/p_q3_isr1.log
+@@ -1,4 +1,5 @@
+   RANMAR INITIALIZED:       7013           0         0
++marran initialized: ij,kl,ijkl,ntot,ntot2=         0      7013      7013         0         0
+ 
+ 
+ 
+@@ -228,29 +229,25 @@
+  *                        initialize KarLud  ENDed                         *
+  ***************************************************************************
+ 
+-marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137         0         0
+  ===========  YFS3ff  ======================>           1
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1   -21.30489776359812   40.30765311947077    0.37784577761456   45.59379959106445    0.21500000357676   13
+- qf2    21.30489776359812  -40.30765311947077   -0.37784577761456   45.59379959106445    0.21500000357676   13
+- sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
+- ===========  YFS3ff  ======================>           1
+- pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+- pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    14.39797288789607    9.67574456597268  -42.16428204015896   45.59379959106445    0.21500000357563   13
+- qf2   -14.39797288789607   -9.67574456597268   42.16428204015896   45.59379959106445    0.21500000357563   13
+- sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
++ qf1   -36.01765218901214  -26.98209066452819    4.91625497842960   45.27162769165630    0.21500000357623   13
++ qf2    36.34707671754788   26.98164220775369   -4.67668043199718   45.50864277258891    0.21500000357570   13
++ pho    -0.32942452853574    0.00044845677450   -0.23957454643242    0.40732871788369    0.00000000372529
++ sum     0.00000000000000    0.00000000000000   -0.00000000000000   91.18759918212889   91.18759918212889
+  ===========  YFSPRO  ======================>           1
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    14.39797288789607    9.67574456597268  -42.16428204015896   45.59379959106445    0.21500000357563   13
+- qf2   -14.39797288789607   -9.67574456597268   42.16428204015896   45.59379959106445    0.21500000357563   13
+- sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
++ qf1   -36.01765218901214  -26.98209066452819    4.91625497842960   45.27162769165630    0.21500000357623   13
++ qf2    36.34707671754788   26.98164220775369   -4.67668043199718   45.50864277258891    0.21500000357570   13
++ pho    -0.32942452853574    0.00044845677450   -0.23957454643242    0.40732871788369    0.00000000372529
++ sum     0.00000000000000    0.00000000000000   -0.00000000000000   91.18759918212889   91.18759918212889
+  =========== *momini* ======================>           1
+  qf1     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+  qf2     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+- sum     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
++ pho    -0.32942452853574    0.00044845677450   -0.23957454643242    0.40732871788369    0.00000000372529
++ sum    -0.32942452853574    0.00044845677450   -0.23957454643242    0.40732871788369    0.00000000372529
+  =========== *momfin* ======================>           1
+  qf1     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+  qf2     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+@@ -258,46 +255,27 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ===========  YFS3ff  ======================>           2
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1     3.52586938167685  -45.39342384142561    0.54442970433934   45.53391386261956    0.21500000357714   13
+- qf2    -3.52517314030528   45.39264206170473   -0.53402761992498   45.53295739913625    0.21500000357775   13
+- pho    -0.00000399460097    0.00000272766682   -0.06556002184185    0.06556002202029    0.00000000086687
+- pho    -0.00069141077573    0.00077811382271    0.05438864338546    0.05439860328439    0.00000000130741
+- pho    -0.00000083599486    0.00000093823134    0.00076929404203    0.00076929506840    0.00000000000702
+- sum     0.00000000000000   -0.00000000000000    0.00000000000000   91.18759918212889   91.18759918212889
+- ===========  YFS3ff  ======================>           2
+- pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+- pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1     8.59881127679468   40.41556801111231  -19.04555870867566   45.49876069259387    0.21500000357702   13
+- qf2    -8.59881354409089  -40.41556856827506   18.72844313785586   45.36693272012581    0.21500000357639   13
+- pho     0.00000154139173    0.00000268121759    0.31951066958111    0.31951066959608    0.00000000605633
+- pho     0.00000072590449   -0.00000212405484   -0.00239509876130    0.00239509981315    0.00000000002598
+- sum     0.00000000000000    0.00000000000000   -0.00000000000000   91.18759918212889   91.18759918212889
+- ===========  YFS3ff  ======================>           2
+- pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+- pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    15.80397202586489  -18.10604278466497  -38.33959916733959   45.25003211521781    0.21500000357603   13
+- qf2   -15.80361507616114   18.10546148407742   38.70951149909866   45.56352148953446    0.21500000357828   13
+- pho    -0.00035693263987    0.00058129133039   -0.37197864184816    0.37197926728746    0.00000000634207
+- pho    -0.00000001706388    0.00000000925716    0.00206631008909    0.00206631008918    0.00000000003285
+- sum    -0.00000000000000   -0.00000000000000   -0.00000000000000   91.18759918212889   91.18759918212889
++ qf1    32.83657501868829   30.89899886971049   -6.76458025603192   45.59379959106445    0.21500000357676   13
++ qf2   -32.83657501868829  -30.89899886971049    6.76458025603192   45.59379959106445    0.21500000357676   13
++ sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
+   generation finished 
+ 1
+       7          wt in KarLud                                                                    
+            nent            sum           bmin           bmax
+-         225575    0.21444E+06    0.00000E+00    0.19861E+06
++         225267    0.21423E+06    0.00000E+00    0.19846E+06
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.95063E+00
+-  0.0000   0.3173D+04 0                                                       I
+-  0.1000   0.1039D+04 0                                                       I
+-  0.2000   0.1227D+04 0                                                       I
+-  0.3000   0.1413D+04 0                                                       I
+-  0.4000   0.1593D+04 0                                                       I
+-  0.5000   0.1935D+04 0                                                       I
+-  0.6000   0.2384D+04 0                                                       I
+-  0.7000   0.3443D+04 0                                                       I
+-  0.8000   0.5982D+04 0X                                                      I
+-  0.9000   0.1986D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  1.0000   0.4774D+04 0X                                                      I
++    0.00000E+00    0.00000E+00    0.95102E+00
++  0.0000   0.3152D+04 0                                                       I
++  0.1000   0.9670D+03 0                                                       I
++  0.2000   0.1173D+04 0                                                       I
++  0.3000   0.1397D+04 0                                                       I
++  0.4000   0.1606D+04 0                                                       I
++  0.5000   0.1995D+04 0                                                       I
++  0.6000   0.2327D+04 0                                                       I
++  0.7000   0.3452D+04 0                                                       I
++  0.8000   0.6021D+04 0X                                                      I
++  0.9000   0.1985D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  1.0000   0.4714D+04 0X                                                      I
+   1.1000   0.0000D+00 0                                                       I
+   1.2000   0.0000D+00 0                                                       I
+   1.3000   0.0000D+00 0                                                       I
+@@ -344,32 +322,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  *                          window a                                       *
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   59    0.9506301E+00    0.000364623    0.1000000E+01
++   59    0.9510250E+00    0.000362377    0.1000000E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      225575        4774           0         692        2266
++      225267        4714           0         669        2231
+  *                1                 total no of events       nevtot     a0 *
+  *                0                 wt<0        events       nevneg     a1 *
+  *     580.58569686                 xs_cru vesko  [R]        xcvesk     a2 *
+- *     579.12920496  +- 0.02911893  xs_est vesko  [R]        xsve       a3 *
++ *     579.13351652  +- 0.02880902  xs_est vesko  [R]        xsve       a3 *
+  *     578.91599880  +- 0.00817154  xs_est gauss  [R]        xcgaus     a4 *
+- *       0.00036829  +- 0.00005128  xcve/xcgs-1                         a5 *
+- *       0.95063014  +- 0.00036462      <wt>                 wtkarl     a6 *
+- *     551.92226484  +- 0.20124351  sigma_prim    [R]        xskarl     a7 *
++ *       0.00037573  +- 0.00005075  xcve/xcgs-1                         a5 *
++ *       0.95102495  +- 0.00036238      <wt>                 wtkarl     a6 *
++ *     552.15148613  +- 0.20008727  sigma_prim    [R]        xskarl     a7 *
+  ***************************************************************************
+ 
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   79    0.1033445E+01    0.000705579    0.1962743E+01
++   79    0.1033326E+01    0.000704064    0.1962771E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      225575       93279           0           0        2266
++      225267       92982           0           0        2231
+ 1
+       5          wt yfs3    nphot.ne.0                                                           
+            nent            sum           bmin           bmax
+-         225575    0.23312E+06    0.00000E+00    0.49135E+05
++         225267    0.23277E+06    0.00000E+00    0.49356E+05
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.10334E+01
++    0.00000E+00    0.00000E+00    0.10333E+01
+  -1.0000   0.0000D+00 0                                                       I
+  -0.9000   0.0000D+00 0                                                       I
+  -0.8000   0.0000D+00 0                                                       I
+@@ -380,26 +358,26 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  -0.3000   0.0000D+00 0                                                       I
+  -0.2000   0.0000D+00 0                                                       I
+  -0.1000   0.0000D+00 0                                                       I
+- -0.0000   0.3223D+04 0XXX                                                    I
+-  0.1000   0.1154D+04 0X                                                      I
+-  0.2000   0.1248D+04 0X                                                      I
+-  0.3000   0.1326D+04 0X                                                      I
+-  0.4000   0.1697D+04 0X                                                      I
+-  0.5000   0.2130D+04 0XX                                                     I
+-  0.6000   0.3198D+04 0XXX                                                    I
+-  0.7000   0.3286D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                  I
+-  0.8000   0.4914D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  0.9000   0.2921D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                      I
+-  1.0000   0.2284D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXX                             I
++ -0.0000   0.3190D+04 0XXX                                                    I
++  0.1000   0.1070D+04 0X                                                      I
++  0.2000   0.1213D+04 0X                                                      I
++  0.3000   0.1361D+04 0X                                                      I
++  0.4000   0.1688D+04 0X                                                      I
++  0.5000   0.2134D+04 0XX                                                     I
++  0.6000   0.3224D+04 0XXX                                                    I
++  0.7000   0.3279D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                  I
++  0.8000   0.4936D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  0.9000   0.2909D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                      I
++  1.0000   0.2274D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
+   1.1000   0.1914D+05 0XXXXXXXXXXXXXXXXXXXXX                                  I
+-  1.2000   0.1657D+05 0XXXXXXXXXXXXXXXXXX                                     I
+-  1.3000   0.8523D+04 0XXXXXXXXX                                              I
+-  1.4000   0.7087D+04 0XXXXXXXX                                               I
+-  1.5000   0.6577D+04 0XXXXXXX                                                I
+-  1.6000   0.6111D+04 0XXXXXX                                                 I
+-  1.7000   0.5728D+04 0XXXXXX                                                 I
+-  1.8000   0.5176D+04 0XXXXX                                                  I
+-  1.9000   0.2643D+04 0XXX                                                    I
++  1.2000   0.1643D+05 0XXXXXXXXXXXXXXXXXX                                     I
++  1.3000   0.8571D+04 0XXXXXXXXX                                              I
++  1.4000   0.7193D+04 0XXXXXXXX                                               I
++  1.5000   0.6727D+04 0XXXXXXX                                                I
++  1.6000   0.5943D+04 0XXXXXX                                                 I
++  1.7000   0.5693D+04 0XXXXXX                                                 I
++  1.8000   0.5114D+04 0XXXXX                                                  I
++  1.9000   0.2599D+04 0XX                                                     I
+   2.0000   0.0000D+00 0                                                       I
+   2.1000   0.0000D+00 0                                                       I
+   2.2000   0.0000D+00 0                                                       I
+@@ -435,10 +413,10 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                         yfs3  output - window a                         *
+  *      91.18759918                 cms energy total         cmsene     a0 *
+- *     600.00359046  +- 0.42334964  xs_tot mc r-units        xsmc       a1 *
+- *       6.26721848                 xs_tot    nanob.         xsmcnb     a3 *
+- *       0.00442201                 absolute error           erabs2     a4 *
+- *       0.00070558                 relative error           erel       a5 *
++ *     599.93411835  +- 0.42239195  xs_tot mc r-units        xsmc       a1 *
++ *       6.26649282                 xs_tot    nanob.         xsmcnb     a3 *
++ *       0.00441201                 absolute error           erabs2     a4 *
++ *       0.00070406                 relative error           erel       a5 *
+  *                2                 total no of events       nevtot     a6 *
+  *                1                 accepted    events       nevacc     a7 *
+  *                0                 wt<0        events       nevneg     a8 *
+@@ -452,32 +430,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                       yfs3   output - window b                          *
+  *                          x-sections in r-units                          *
+- *     599.98870208  +- 0.42333959            x-section     o(alf2)     b1 *
+- *     599.21752477  +- 0.42277282            x-section     o(alf1)     b2 *
+- *     570.93356908  +- 0.40077183            x-section     o(alf0)     b3 *
+- *       0.00128697  +- 0.00000189    (o(alf2)-o(alf1))    /o(alf1)     b4 *
+- *       0.04953984  +- 0.00004922    (o(alf1)-o(alf0))    /o(alf0)     b5 *
++ *     599.91917746  +- 0.42238213            x-section     o(alf2)     b1 *
++ *     599.14968284  +- 0.42181461            x-section     o(alf1)     b2 *
++ *     570.90179594  +- 0.39991126            x-section     o(alf0)     b3 *
++ *       0.00128431  +- 0.00000185    (o(alf2)-o(alf1))    /o(alf1)     b4 *
++ *       0.04947942  +- 0.00004959    (o(alf1)-o(alf0))    /o(alf0)     b5 *
+  ***************************************************************************
+ 
+- ypar(20-22)=   6.2672184777825732        7.0557850643170874E-004   600.00359045581570     
++ ypar(20-22)=   6.2664928206484607        7.0406389840378561E-004   599.93411834670519     
+   generation finished 
+ 1
+       7          wt in KarLud                                                                    
+            nent            sum           bmin           bmax
+-         225575    0.21444E+06    0.00000E+00    0.19861E+06
++         225267    0.21423E+06    0.00000E+00    0.19846E+06
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.95063E+00
+-  0.0000   0.3173D+04 0                                                       I
+-  0.1000   0.1039D+04 0                                                       I
+-  0.2000   0.1227D+04 0                                                       I
+-  0.3000   0.1413D+04 0                                                       I
+-  0.4000   0.1593D+04 0                                                       I
+-  0.5000   0.1935D+04 0                                                       I
+-  0.6000   0.2384D+04 0                                                       I
+-  0.7000   0.3443D+04 0                                                       I
+-  0.8000   0.5982D+04 0X                                                      I
+-  0.9000   0.1986D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  1.0000   0.4774D+04 0X                                                      I
++    0.00000E+00    0.00000E+00    0.95102E+00
++  0.0000   0.3152D+04 0                                                       I
++  0.1000   0.9670D+03 0                                                       I
++  0.2000   0.1173D+04 0                                                       I
++  0.3000   0.1397D+04 0                                                       I
++  0.4000   0.1606D+04 0                                                       I
++  0.5000   0.1995D+04 0                                                       I
++  0.6000   0.2327D+04 0                                                       I
++  0.7000   0.3452D+04 0                                                       I
++  0.8000   0.6021D+04 0X                                                      I
++  0.9000   0.1985D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  1.0000   0.4714D+04 0X                                                      I
+   1.1000   0.0000D+00 0                                                       I
+   1.2000   0.0000D+00 0                                                       I
+   1.3000   0.0000D+00 0                                                       I
+@@ -524,32 +502,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  *                          window a                                       *
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   59    0.9506301E+00    0.000364623    0.1000000E+01
++   59    0.9510250E+00    0.000362377    0.1000000E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      225575        4774           0         692        2266
++      225267        4714           0         669        2231
+  *                1                 total no of events       nevtot     a0 *
+  *                0                 wt<0        events       nevneg     a1 *
+  *     580.58569686                 xs_cru vesko  [R]        xcvesk     a2 *
+- *     579.12920496  +- 0.02911893  xs_est vesko  [R]        xsve       a3 *
++ *     579.13351652  +- 0.02880902  xs_est vesko  [R]        xsve       a3 *
+  *     578.91599880  +- 0.00817154  xs_est gauss  [R]        xcgaus     a4 *
+- *       0.00036829  +- 0.00005128  xcve/xcgs-1                         a5 *
+- *       0.95063014  +- 0.00036462      <wt>                 wtkarl     a6 *
+- *     551.92226484  +- 0.20124351  sigma_prim    [R]        xskarl     a7 *
++ *       0.00037573  +- 0.00005075  xcve/xcgs-1                         a5 *
++ *       0.95102495  +- 0.00036238      <wt>                 wtkarl     a6 *
++ *     552.15148613  +- 0.20008727  sigma_prim    [R]        xskarl     a7 *
+  ***************************************************************************
+ 
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   79    0.1033445E+01    0.000705579    0.1962743E+01
++   79    0.1033326E+01    0.000704064    0.1962771E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      225575       93279           0           0        2266
++      225267       92982           0           0        2231
+ 1
+       5          wt yfs3    nphot.ne.0                                                           
+            nent            sum           bmin           bmax
+-         225575    0.23312E+06    0.00000E+00    0.49135E+05
++         225267    0.23277E+06    0.00000E+00    0.49356E+05
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.10334E+01
++    0.00000E+00    0.00000E+00    0.10333E+01
+  -1.0000   0.0000D+00 0                                                       I
+  -0.9000   0.0000D+00 0                                                       I
+  -0.8000   0.0000D+00 0                                                       I
+@@ -560,26 +538,26 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  -0.3000   0.0000D+00 0                                                       I
+  -0.2000   0.0000D+00 0                                                       I
+  -0.1000   0.0000D+00 0                                                       I
+- -0.0000   0.3223D+04 0XXX                                                    I
+-  0.1000   0.1154D+04 0X                                                      I
+-  0.2000   0.1248D+04 0X                                                      I
+-  0.3000   0.1326D+04 0X                                                      I
+-  0.4000   0.1697D+04 0X                                                      I
+-  0.5000   0.2130D+04 0XX                                                     I
+-  0.6000   0.3198D+04 0XXX                                                    I
+-  0.7000   0.3286D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                  I
+-  0.8000   0.4914D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  0.9000   0.2921D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                      I
+-  1.0000   0.2284D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXX                             I
++ -0.0000   0.3190D+04 0XXX                                                    I
++  0.1000   0.1070D+04 0X                                                      I
++  0.2000   0.1213D+04 0X                                                      I
++  0.3000   0.1361D+04 0X                                                      I
++  0.4000   0.1688D+04 0X                                                      I
++  0.5000   0.2134D+04 0XX                                                     I
++  0.6000   0.3224D+04 0XXX                                                    I
++  0.7000   0.3279D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                  I
++  0.8000   0.4936D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  0.9000   0.2909D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                      I
++  1.0000   0.2274D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
+   1.1000   0.1914D+05 0XXXXXXXXXXXXXXXXXXXXX                                  I
+-  1.2000   0.1657D+05 0XXXXXXXXXXXXXXXXXX                                     I
+-  1.3000   0.8523D+04 0XXXXXXXXX                                              I
+-  1.4000   0.7087D+04 0XXXXXXXX                                               I
+-  1.5000   0.6577D+04 0XXXXXXX                                                I
+-  1.6000   0.6111D+04 0XXXXXX                                                 I
+-  1.7000   0.5728D+04 0XXXXXX                                                 I
+-  1.8000   0.5176D+04 0XXXXX                                                  I
+-  1.9000   0.2643D+04 0XXX                                                    I
++  1.2000   0.1643D+05 0XXXXXXXXXXXXXXXXXX                                     I
++  1.3000   0.8571D+04 0XXXXXXXXX                                              I
++  1.4000   0.7193D+04 0XXXXXXXX                                               I
++  1.5000   0.6727D+04 0XXXXXXX                                                I
++  1.6000   0.5943D+04 0XXXXXX                                                 I
++  1.7000   0.5693D+04 0XXXXXX                                                 I
++  1.8000   0.5114D+04 0XXXXX                                                  I
++  1.9000   0.2599D+04 0XX                                                     I
+   2.0000   0.0000D+00 0                                                       I
+   2.1000   0.0000D+00 0                                                       I
+   2.2000   0.0000D+00 0                                                       I
+@@ -615,10 +593,10 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                         yfs3  output - window a                         *
+  *      91.18759918                 cms energy total         cmsene     a0 *
+- *     600.00359046  +- 0.42334964  xs_tot mc r-units        xsmc       a1 *
+- *       6.26721848                 xs_tot    nanob.         xsmcnb     a3 *
+- *       0.00442201                 absolute error           erabs2     a4 *
+- *       0.00070558                 relative error           erel       a5 *
++ *     599.93411835  +- 0.42239195  xs_tot mc r-units        xsmc       a1 *
++ *       6.26649282                 xs_tot    nanob.         xsmcnb     a3 *
++ *       0.00441201                 absolute error           erabs2     a4 *
++ *       0.00070406                 relative error           erel       a5 *
+  *                2                 total no of events       nevtot     a6 *
+  *                1                 accepted    events       nevacc     a7 *
+  *                0                 wt<0        events       nevneg     a8 *
+@@ -632,23 +610,23 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                       yfs3   output - window b                          *
+  *                          x-sections in r-units                          *
+- *     599.98870208  +- 0.42333959            x-section     o(alf2)     b1 *
+- *     599.21752477  +- 0.42277282            x-section     o(alf1)     b2 *
+- *     570.93356908  +- 0.40077183            x-section     o(alf0)     b3 *
+- *       0.00128697  +- 0.00000189    (o(alf2)-o(alf1))    /o(alf1)     b4 *
+- *       0.04953984  +- 0.00004922    (o(alf1)-o(alf0))    /o(alf0)     b5 *
++ *     599.91917746  +- 0.42238213            x-section     o(alf2)     b1 *
++ *     599.14968284  +- 0.42181461            x-section     o(alf1)     b2 *
++ *     570.90179594  +- 0.39991126            x-section     o(alf0)     b3 *
++ *       0.00128431  +- 0.00000185    (o(alf2)-o(alf1))    /o(alf1)     b4 *
++ *       0.04947942  +- 0.00004959    (o(alf1)-o(alf0))    /o(alf0)     b5 *
+  ***************************************************************************
+ 
+- ypar(20-22)=   6.2672184777825732        7.0557850643170874E-004   600.00359045581570     
++ ypar(20-22)=   6.2664928206484607        7.0406389840378561E-004   599.93411834670519     
+  ==========================================
+  ========= WEIGHTS IN EVENTE ==============
+  ==========================================
+  =======================WMONIT========================
+    ID           AVERWT         ERRELA            WWMAX
+-   13    0.1072094E+01    0.000164715    0.1154276E+01
++   13    0.1072133E+01    0.000164882    0.1154276E+01
+  -----------------------------------------------------------
+       NEVTOT      NEVACC      NEVNEG      NEVOVE      NEVZER
+-       93279       50000           0           0           0
++       92982       50000           0           0           0
+ 
+ 
+ 
+@@ -659,8 +637,8 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  K                         ==========      Z. Was        =========         K
+  K                         ============= FINAL REPORT ============         K
+  K               50000     Number of generated events                      K
+- K         6.719132423     Total cross sections in nanobarns               K
+- K         0.004868344     Absolute error                                  K
+- K         0.000724549     Relative error                                  K
++ K         6.718598843     Total cross sections in nanobarns               K
++ K         0.004858305     Absolute error                                  K
++ K         0.000723113     Relative error                                  K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+diff --git a/ProdRun/pilot/p_q4_isr0.log b/ProdRun/pilot/p_q4_isr0.log
+index c8e5a82..2f9129d 100644
+--- a/ProdRun/pilot/p_q4_isr0.log
++++ b/ProdRun/pilot/p_q4_isr0.log
+@@ -1,4 +1,5 @@
+   RANMAR INITIALIZED:       7004           0         0
++marran initialized: ij,kl,ijkl,ntot,ntot2=         0      7004      7004         0         0
+ 
+ 
+ 
+@@ -184,8 +185,8 @@
+  K                         =======================================         K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+- SIGT=   637.38374052776692      ERR=   6.2649577496599057E-006
+- AWT=   1.0713658378300694      +-   8.8960748887490000E-005
++ SIGT=   637.03942424281331      ERR=   4.8602980393224760E-005
++ AWT=   1.0658531530399762      +-   8.9742635829989580E-005
+ 
+ 
+ 
+@@ -196,8 +197,8 @@
+  K                         ==========      Z. Was        =========         K
+  K                         ============= FINAL REPORT ============         K
+  K               50000     Number of generated events                      K
+- K         7.132888317     Total cross sections in nanobarns               K
+- K         0.000636119     Absolute error                                  K
+- K         0.000089181     Relative error                                  K
++ K         7.092352867     Total cross sections in nanobarns               K
++ K         0.000723837     Absolute error                                  K
++ K         0.000102059     Relative error                                  K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+diff --git a/ProdRun/pilot/p_q4_isr1.log b/ProdRun/pilot/p_q4_isr1.log
+index f4a9ad3..ebb2cd5 100644
+--- a/ProdRun/pilot/p_q4_isr1.log
++++ b/ProdRun/pilot/p_q4_isr1.log
+@@ -1,4 +1,5 @@
+   RANMAR INITIALIZED:       7014           0         0
++marran initialized: ij,kl,ijkl,ntot,ntot2=         0      7014      7014         0         0
+ 
+ 
+ 
+@@ -228,24 +229,17 @@
+  *                        initialize KarLud  ENDed                         *
+  ***************************************************************************
+ 
+-marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137         0         0
+  ===========  YFS3ff  ======================>           1
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1   -21.29360162673725   40.28628147191674    0.37764543881624   45.59379959106445    1.50000000000025   13
+- qf2    21.29360162673725  -40.28628147191674   -0.37764543881624   45.59379959106445    1.50000000000025   13
+- sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
+- ===========  YFS3ff  ======================>           1
+- pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+- pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    14.39033889340028    9.67061435900991  -42.14192598354460   45.59379959106445    1.50000000000002   13
+- qf2   -14.39033889340028   -9.67061435900991   42.14192598354460   45.59379959106445    1.50000000000002   13
++ qf1     2.84162600769988   -1.64889170367055   45.45053221835889   45.59379959106445    1.50000000000002   13
++ qf2    -2.84162600769988    1.64889170367055  -45.45053221835889   45.59379959106445    1.50000000000002   13
+  sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
+  ===========  YFSPRO  ======================>           1
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    14.39033889340028    9.67061435900991  -42.14192598354460   45.59379959106445    1.50000000000002   13
+- qf2   -14.39033889340028   -9.67061435900991   42.14192598354460   45.59379959106445    1.50000000000002   13
++ qf1     2.84162600769988   -1.64889170367055   45.45053221835889   45.59379959106445    1.50000000000002   13
++ qf2    -2.84162600769988    1.64889170367055  -45.45053221835889   45.59379959106445    1.50000000000002   13
+  sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
+  =========== *momini* ======================>           1
+  qf1     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+@@ -258,46 +252,29 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ===========  YFS3ff  ======================>           2
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1     3.52383747041941  -45.36711281995061    0.54430645004560   45.53173207388031    1.50000000000056   13
+- qf2    -3.52311586627533   45.36630256145495   -0.53352543712825   45.53074129526928    1.50000000000045   13
+- pho    -0.00000414011682    0.00000282703063   -0.06794825096426    0.06794825114920    0.00000000088531
+- pho    -0.00071659757866    0.00080645905567    0.05636992006006    0.05638024277951    0.00000000046680
+- pho    -0.00000086644860    0.00000097240935    0.00079731798685    0.00079731905061    0.00000000000723
+- sum    -0.00000000000000    0.00000000000000   -0.00000000000000   91.18759918212892   91.18759918212892
+- ===========  YFS3ff  ======================>           2
+- pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+- pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1     8.59304394941741   40.38846099552897  -19.03899454169649   45.49507115130972    1.50000000000011   13
+- qf2    -8.59304630386100  -40.38846157410723   18.70969009624048   45.35824926736916    1.50000000000040   13
+- pho     0.00000160063773    0.00000278427473    0.33179160389912    0.33179160391466    0.00000000228562
+- pho     0.00000075380586   -0.00000220569648   -0.00248715844310    0.00248715953538    0.00000000003967
+- sum    -0.00000000000000   -0.00000000000001    0.00000000000000   91.18759918212891   91.18759918212891
+- ===========  YFS3ff  ======================>           2
+- pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+- pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    15.79296240615487  -18.09343289098238  -38.30550747933121   45.23662098998778    1.49999999999972   13
+- qf2   -15.79259144060276   18.09282876527185   38.68994464496483   45.56224548647366    1.49999999999975   13
+- pho    -0.00037094781820    0.00060411608988   -0.38658461065171    0.38658526064928    0.00000000343109
+- pho    -0.00000001773390    0.00000000962065    0.00214744501810    0.00214744501819    0.00000000002380
+- sum     0.00000000000000   -0.00000000000000   -0.00000000000000   91.18759918212892   91.18759918212892
++ qf1    18.67626864114576  -41.43014263711142    2.44085997347729   45.53534370901097    1.50000000000000   13
++ qf2   -18.67571341824029   41.43041030609567   -2.31752086135083   45.52891468895866    1.49999999999996   13
++ pho    -0.00051603374551   -0.00021520775694   -0.11694975309614    0.11695108958215    0.00000000259197
++ pho    -0.00003918915996   -0.00005246122731   -0.00638935903033    0.00638969457713    0.00000000002288
++ sum    -0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212893   91.18759918212893
+   generation finished 
+ 1
+       7          wt in KarLud                                                                    
+            nent            sum           bmin           bmax
+-         227742    0.21622E+06    0.00000E+00    0.20160E+06
++         228227    0.21669E+06    0.00000E+00    0.20188E+06
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.94943E+00
+-  0.0000   0.3103D+04 0                                                       I
+-  0.1000   0.1118D+04 0                                                       I
+-  0.2000   0.1425D+04 0                                                       I
+-  0.3000   0.1456D+04 0                                                       I
+-  0.4000   0.1740D+04 0                                                       I
+-  0.5000   0.2029D+04 0                                                       I
+-  0.6000   0.2518D+04 0                                                       I
+-  0.7000   0.3452D+04 0                                                       I
+-  0.8000   0.6087D+04 0X                                                      I
+-  0.9000   0.2016D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  1.0000   0.3213D+04 0                                                       I
++    0.00000E+00    0.00000E+00    0.94945E+00
++  0.0000   0.3114D+04 0                                                       I
++  0.1000   0.1090D+04 0                                                       I
++  0.2000   0.1339D+04 0                                                       I
++  0.3000   0.1504D+04 0                                                       I
++  0.4000   0.1807D+04 0                                                       I
++  0.5000   0.2044D+04 0                                                       I
++  0.6000   0.2581D+04 0                                                       I
++  0.7000   0.3407D+04 0                                                       I
++  0.8000   0.6166D+04 0X                                                      I
++  0.9000   0.2019D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  1.0000   0.3298D+04 0                                                       I
+   1.1000   0.0000D+00 0                                                       I
+   1.2000   0.0000D+00 0                                                       I
+   1.3000   0.0000D+00 0                                                       I
+@@ -344,32 +321,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  *                          window a                                       *
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   59    0.9494285E+00    0.000366601    0.1000000E+01
++   59    0.9494539E+00    0.000365400    0.1000000E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      227742        3213           0        1022        2183
++      228227        3298           0        1046        2193
+  *                1                 total no of events       nevtot     a0 *
+  *                0                 wt<0        events       nevneg     a1 *
+  *     454.42285448                 xs_cru vesko  [R]        xcvesk     a2 *
+- *     453.29143180  +- 0.01988532  xs_est vesko  [R]        xsve       a3 *
++ *     453.28068359  +- 0.02017853  xs_est vesko  [R]        xsve       a3 *
+  *     453.10582784  +- 0.00637043  xs_est gauss  [R]        xcgaus     a4 *
+- *       0.00040963  +- 0.00004487  xcve/xcgs-1                         a5 *
+- *       0.94942851  +- 0.00036660      <wt>                 wtkarl     a6 *
+- *     431.44201194  +- 0.15816717  sigma_prim    [R]        xskarl     a7 *
++ *       0.00038590  +- 0.00004552  xcve/xcgs-1                         a5 *
++ *       0.94945390  +- 0.00036540      <wt>                 wtkarl     a6 *
++ *     431.45355107  +- 0.15765297  sigma_prim    [R]        xskarl     a7 *
+  ***************************************************************************
+ 
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   79    0.1030785E+01    0.000661910    0.1877461E+01
++   79    0.1030700E+01    0.000660369    0.1877497E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      227742       93696           0           0        2183
++      228227       93645           0           0        2193
+ 1
+       5          wt yfs3    nphot.ne.0                                                           
+            nent            sum           bmin           bmax
+-         227742    0.23475E+06    0.00000E+00    0.68202E+05
++         228227    0.23523E+06    0.00000E+00    0.68345E+05
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.10308E+01
++    0.00000E+00    0.00000E+00    0.10307E+01
+  -1.0000   0.0000D+00 0                                                       I
+  -0.9000   0.0000D+00 0                                                       I
+  -0.8000   0.0000D+00 0                                                       I
+@@ -380,25 +357,25 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  -0.3000   0.0000D+00 0                                                       I
+  -0.2000   0.0000D+00 0                                                       I
+  -0.1000   0.0000D+00 0                                                       I
+- -0.0000   0.3242D+04 0XX                                                     I
+-  0.1000   0.1496D+04 0X                                                      I
+-  0.2000   0.1390D+04 0X                                                      I
+-  0.3000   0.1414D+04 0X                                                      I
+-  0.4000   0.1665D+04 0X                                                      I
+-  0.5000   0.2125D+04 0X                                                      I
+-  0.6000   0.3006D+04 0XX                                                     I
+-  0.7000   0.9705D+04 0XXXXXXX                                                I
+-  0.8000   0.6820D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  0.9000   0.3081D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
+-  1.0000   0.2366D+05 0XXXXXXXXXXXXXXXXXXX                                    I
+-  1.1000   0.1992D+05 0XXXXXXXXXXXXXXXX                                       I
+-  1.2000   0.1706D+05 0XXXXXXXXXXXXXX                                         I
+-  1.3000   0.1496D+05 0XXXXXXXXXXXX                                           I
+-  1.4000   0.7737D+04 0XXXXXX                                                 I
+-  1.5000   0.6547D+04 0XXXXX                                                  I
+-  1.6000   0.6043D+04 0XXXX                                                   I
++ -0.0000   0.3286D+04 0XX                                                     I
++  0.1000   0.1449D+04 0X                                                      I
++  0.2000   0.1362D+04 0X                                                      I
++  0.3000   0.1423D+04 0X                                                      I
++  0.4000   0.1684D+04 0X                                                      I
++  0.5000   0.2127D+04 0X                                                      I
++  0.6000   0.3111D+04 0XX                                                     I
++  0.7000   0.9832D+04 0XXXXXXXX                                               I
++  0.8000   0.6834D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  0.9000   0.3054D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
++  1.0000   0.2369D+05 0XXXXXXXXXXXXXXXXXXX                                    I
++  1.1000   0.1987D+05 0XXXXXXXXXXXXXXXX                                       I
++  1.2000   0.1729D+05 0XXXXXXXXXXXXXX                                         I
++  1.3000   0.1519D+05 0XXXXXXXXXXXX                                           I
++  1.4000   0.7756D+04 0XXXXXX                                                 I
++  1.5000   0.6679D+04 0XXXXX                                                  I
++  1.6000   0.5863D+04 0XXXX                                                   I
+   1.7000   0.5406D+04 0XXXX                                                   I
+-  1.8000   0.3368D+04 0XX                                                     I
++  1.8000   0.3320D+04 0XX                                                     I
+   1.9000   0.0000D+00 0                                                       I
+   2.0000   0.0000D+00 0                                                       I
+   2.1000   0.0000D+00 0                                                       I
+@@ -435,10 +412,10 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                         yfs3  output - window a                         *
+  *      91.18759918                 cms energy total         cmsene     a0 *
+- *     468.41212598  +- 0.31004686  xs_tot mc r-units        xsmc       a1 *
+- *       4.89270594                 xs_tot    nanob.         xsmcnb     a3 *
+- *       0.00323853                 absolute error           erabs2     a4 *
+- *       0.00066191                 relative error           erel       a5 *
++ *     468.37352774  +- 0.30929929  xs_tot mc r-units        xsmc       a1 *
++ *       4.89230277                 xs_tot    nanob.         xsmcnb     a3 *
++ *       0.00323072                 absolute error           erabs2     a4 *
++ *       0.00066037                 relative error           erel       a5 *
+  *                2                 total no of events       nevtot     a6 *
+  *                1                 accepted    events       nevacc     a7 *
+  *                0                 wt<0        events       nevneg     a8 *
+@@ -452,32 +429,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                       yfs3   output - window b                          *
+  *                          x-sections in r-units                          *
+- *     468.40042681  +- 0.31003994            x-section     o(alf2)     b1 *
+- *     467.78915522  +- 0.30968378            x-section     o(alf1)     b2 *
+- *     446.08707182  +- 0.29242145            x-section     o(alf0)     b3 *
+- *       0.00130672  +- 0.00000369    (o(alf2)-o(alf1))    /o(alf1)     b4 *
+- *       0.04864988  +- 0.00006011    (o(alf1)-o(alf0))    /o(alf0)     b5 *
++ *     468.36159894  +- 0.30929356            x-section     o(alf2)     b1 *
++ *     467.75147748  +- 0.30893575            x-section     o(alf1)     b2 *
++ *     446.05470238  +- 0.29169647            x-section     o(alf0)     b3 *
++ *       0.00130437  +- 0.00000375    (o(alf2)-o(alf1))    /o(alf1)     b4 *
++ *       0.04864151  +- 0.00005955    (o(alf1)-o(alf0))    /o(alf0)     b5 *
+  ***************************************************************************
+ 
+- ypar(20-22)=   4.8927059401647499        6.6191040369187098E-004   468.41212597745863     
++ ypar(20-22)=   4.8923027698835746        6.6036886309341297E-004   468.37352773533132     
+   generation finished 
+ 1
+       7          wt in KarLud                                                                    
+            nent            sum           bmin           bmax
+-         227742    0.21622E+06    0.00000E+00    0.20160E+06
++         228227    0.21669E+06    0.00000E+00    0.20188E+06
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.94943E+00
+-  0.0000   0.3103D+04 0                                                       I
+-  0.1000   0.1118D+04 0                                                       I
+-  0.2000   0.1425D+04 0                                                       I
+-  0.3000   0.1456D+04 0                                                       I
+-  0.4000   0.1740D+04 0                                                       I
+-  0.5000   0.2029D+04 0                                                       I
+-  0.6000   0.2518D+04 0                                                       I
+-  0.7000   0.3452D+04 0                                                       I
+-  0.8000   0.6087D+04 0X                                                      I
+-  0.9000   0.2016D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  1.0000   0.3213D+04 0                                                       I
++    0.00000E+00    0.00000E+00    0.94945E+00
++  0.0000   0.3114D+04 0                                                       I
++  0.1000   0.1090D+04 0                                                       I
++  0.2000   0.1339D+04 0                                                       I
++  0.3000   0.1504D+04 0                                                       I
++  0.4000   0.1807D+04 0                                                       I
++  0.5000   0.2044D+04 0                                                       I
++  0.6000   0.2581D+04 0                                                       I
++  0.7000   0.3407D+04 0                                                       I
++  0.8000   0.6166D+04 0X                                                      I
++  0.9000   0.2019D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  1.0000   0.3298D+04 0                                                       I
+   1.1000   0.0000D+00 0                                                       I
+   1.2000   0.0000D+00 0                                                       I
+   1.3000   0.0000D+00 0                                                       I
+@@ -524,32 +501,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  *                          window a                                       *
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   59    0.9494285E+00    0.000366601    0.1000000E+01
++   59    0.9494539E+00    0.000365400    0.1000000E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      227742        3213           0        1022        2183
++      228227        3298           0        1046        2193
+  *                1                 total no of events       nevtot     a0 *
+  *                0                 wt<0        events       nevneg     a1 *
+  *     454.42285448                 xs_cru vesko  [R]        xcvesk     a2 *
+- *     453.29143180  +- 0.01988532  xs_est vesko  [R]        xsve       a3 *
++ *     453.28068359  +- 0.02017853  xs_est vesko  [R]        xsve       a3 *
+  *     453.10582784  +- 0.00637043  xs_est gauss  [R]        xcgaus     a4 *
+- *       0.00040963  +- 0.00004487  xcve/xcgs-1                         a5 *
+- *       0.94942851  +- 0.00036660      <wt>                 wtkarl     a6 *
+- *     431.44201194  +- 0.15816717  sigma_prim    [R]        xskarl     a7 *
++ *       0.00038590  +- 0.00004552  xcve/xcgs-1                         a5 *
++ *       0.94945390  +- 0.00036540      <wt>                 wtkarl     a6 *
++ *     431.45355107  +- 0.15765297  sigma_prim    [R]        xskarl     a7 *
+  ***************************************************************************
+ 
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   79    0.1030785E+01    0.000661910    0.1877461E+01
++   79    0.1030700E+01    0.000660369    0.1877497E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      227742       93696           0           0        2183
++      228227       93645           0           0        2193
+ 1
+       5          wt yfs3    nphot.ne.0                                                           
+            nent            sum           bmin           bmax
+-         227742    0.23475E+06    0.00000E+00    0.68202E+05
++         228227    0.23523E+06    0.00000E+00    0.68345E+05
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.10308E+01
++    0.00000E+00    0.00000E+00    0.10307E+01
+  -1.0000   0.0000D+00 0                                                       I
+  -0.9000   0.0000D+00 0                                                       I
+  -0.8000   0.0000D+00 0                                                       I
+@@ -560,25 +537,25 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  -0.3000   0.0000D+00 0                                                       I
+  -0.2000   0.0000D+00 0                                                       I
+  -0.1000   0.0000D+00 0                                                       I
+- -0.0000   0.3242D+04 0XX                                                     I
+-  0.1000   0.1496D+04 0X                                                      I
+-  0.2000   0.1390D+04 0X                                                      I
+-  0.3000   0.1414D+04 0X                                                      I
+-  0.4000   0.1665D+04 0X                                                      I
+-  0.5000   0.2125D+04 0X                                                      I
+-  0.6000   0.3006D+04 0XX                                                     I
+-  0.7000   0.9705D+04 0XXXXXXX                                                I
+-  0.8000   0.6820D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  0.9000   0.3081D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
+-  1.0000   0.2366D+05 0XXXXXXXXXXXXXXXXXXX                                    I
+-  1.1000   0.1992D+05 0XXXXXXXXXXXXXXXX                                       I
+-  1.2000   0.1706D+05 0XXXXXXXXXXXXXX                                         I
+-  1.3000   0.1496D+05 0XXXXXXXXXXXX                                           I
+-  1.4000   0.7737D+04 0XXXXXX                                                 I
+-  1.5000   0.6547D+04 0XXXXX                                                  I
+-  1.6000   0.6043D+04 0XXXX                                                   I
++ -0.0000   0.3286D+04 0XX                                                     I
++  0.1000   0.1449D+04 0X                                                      I
++  0.2000   0.1362D+04 0X                                                      I
++  0.3000   0.1423D+04 0X                                                      I
++  0.4000   0.1684D+04 0X                                                      I
++  0.5000   0.2127D+04 0X                                                      I
++  0.6000   0.3111D+04 0XX                                                     I
++  0.7000   0.9832D+04 0XXXXXXXX                                               I
++  0.8000   0.6834D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  0.9000   0.3054D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
++  1.0000   0.2369D+05 0XXXXXXXXXXXXXXXXXXX                                    I
++  1.1000   0.1987D+05 0XXXXXXXXXXXXXXXX                                       I
++  1.2000   0.1729D+05 0XXXXXXXXXXXXXX                                         I
++  1.3000   0.1519D+05 0XXXXXXXXXXXX                                           I
++  1.4000   0.7756D+04 0XXXXXX                                                 I
++  1.5000   0.6679D+04 0XXXXX                                                  I
++  1.6000   0.5863D+04 0XXXX                                                   I
+   1.7000   0.5406D+04 0XXXX                                                   I
+-  1.8000   0.3368D+04 0XX                                                     I
++  1.8000   0.3320D+04 0XX                                                     I
+   1.9000   0.0000D+00 0                                                       I
+   2.0000   0.0000D+00 0                                                       I
+   2.1000   0.0000D+00 0                                                       I
+@@ -615,10 +592,10 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                         yfs3  output - window a                         *
+  *      91.18759918                 cms energy total         cmsene     a0 *
+- *     468.41212598  +- 0.31004686  xs_tot mc r-units        xsmc       a1 *
+- *       4.89270594                 xs_tot    nanob.         xsmcnb     a3 *
+- *       0.00323853                 absolute error           erabs2     a4 *
+- *       0.00066191                 relative error           erel       a5 *
++ *     468.37352774  +- 0.30929929  xs_tot mc r-units        xsmc       a1 *
++ *       4.89230277                 xs_tot    nanob.         xsmcnb     a3 *
++ *       0.00323072                 absolute error           erabs2     a4 *
++ *       0.00066037                 relative error           erel       a5 *
+  *                2                 total no of events       nevtot     a6 *
+  *                1                 accepted    events       nevacc     a7 *
+  *                0                 wt<0        events       nevneg     a8 *
+@@ -632,23 +609,23 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                       yfs3   output - window b                          *
+  *                          x-sections in r-units                          *
+- *     468.40042681  +- 0.31003994            x-section     o(alf2)     b1 *
+- *     467.78915522  +- 0.30968378            x-section     o(alf1)     b2 *
+- *     446.08707182  +- 0.29242145            x-section     o(alf0)     b3 *
+- *       0.00130672  +- 0.00000369    (o(alf2)-o(alf1))    /o(alf1)     b4 *
+- *       0.04864988  +- 0.00006011    (o(alf1)-o(alf0))    /o(alf0)     b5 *
++ *     468.36159894  +- 0.30929356            x-section     o(alf2)     b1 *
++ *     467.75147748  +- 0.30893575            x-section     o(alf1)     b2 *
++ *     446.05470238  +- 0.29169647            x-section     o(alf0)     b3 *
++ *       0.00130437  +- 0.00000375    (o(alf2)-o(alf1))    /o(alf1)     b4 *
++ *       0.04864151  +- 0.00005955    (o(alf1)-o(alf0))    /o(alf0)     b5 *
+  ***************************************************************************
+ 
+- ypar(20-22)=   4.8927059401647499        6.6191040369187098E-004   468.41212597745863     
++ ypar(20-22)=   4.8923027698835746        6.6036886309341297E-004   468.37352773533132     
+  ==========================================
+  ========= WEIGHTS IN EVENTE ==============
+  ==========================================
+  =======================WMONIT========================
+    ID           AVERWT         ERRELA            WWMAX
+-   13    0.1066042E+01    0.000128236    0.1201996E+01
++   13    0.1066118E+01    0.000128563    0.1219446E+01
+  -----------------------------------------------------------
+       NEVTOT      NEVACC      NEVNEG      NEVOVE      NEVZER
+-       93696       50000           0           0           0
++       93645       50000           0           0           0
+ 
+ 
+ 
+@@ -659,8 +636,8 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  K                         ==========      Z. Was        =========         K
+  K                         ============= FINAL REPORT ============         K
+  K               50000     Number of generated events                      K
+- K         5.215899467     Total cross sections in nanobarns               K
+- K         0.003516653     Absolute error                                  K
+- K         0.000674218     Relative error                                  K
++ K         5.215838432     Total cross sections in nanobarns               K
++ K         0.003509044     Absolute error                                  K
++ K         0.000672767     Relative error                                  K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+diff --git a/ProdRun/pilot/p_q5_isr0.log b/ProdRun/pilot/p_q5_isr0.log
+index fe46309..8d496e2 100644
+--- a/ProdRun/pilot/p_q5_isr0.log
++++ b/ProdRun/pilot/p_q5_isr0.log
+@@ -1,4 +1,5 @@
+   RANMAR INITIALIZED:       7005           0         0
++marran initialized: ij,kl,ijkl,ntot,ntot2=         0      7005      7005         0         0
+ 
+ 
+ 
+@@ -184,8 +185,8 @@
+  K                         =======================================         K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+- SIGT=   801.21162351881492      ERR=   7.0154639319159337E-006
+- AWT=   1.0621756040042369      +-   1.2270782483857825E-004
++ SIGT=   800.87837151075246      ERR=   4.7839293279451777E-005
++ AWT=   1.0580711997816450      +-   1.1644238331162152E-004
+ 
+ 
+ 
+@@ -196,8 +197,8 @@
+  K                         ==========      Z. Was        =========         K
+  K                         ============= FINAL REPORT ============         K
+  K               50000     Number of generated events                      K
+- K         8.889354706     Total cross sections in nanobarns               K
+- K         0.001092575     Absolute error                                  K
+- K         0.000122908     Relative error                                  K
++ K         8.851321220     Total cross sections in nanobarns               K
++ K         0.001114262     Absolute error                                  K
++ K         0.000125887     Relative error                                  K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+diff --git a/ProdRun/pilot/p_q5_isr1.log b/ProdRun/pilot/p_q5_isr1.log
+index a408107..049fcc0 100644
+--- a/ProdRun/pilot/p_q5_isr1.log
++++ b/ProdRun/pilot/p_q5_isr1.log
+@@ -1,4 +1,5 @@
+   RANMAR INITIALIZED:       7015           0         0
++marran initialized: ij,kl,ijkl,ntot,ntot2=         0      7015      7015         0         0
+ 
+ 
+ 
+@@ -228,29 +229,31 @@
+  *                        initialize KarLud  ENDed                         *
+  ***************************************************************************
+ 
+-marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137         0         0
+  ===========  YFS3ff  ======================>           1
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1   -21.19163440473072   40.09336529556138    0.37583703378573   45.59379959106445    4.69999980926514   13
+- qf2    21.19163440473072  -40.09336529556138   -0.37583703378573   45.59379959106445    4.69999980926514   13
++ qf1    40.94876949755260   17.93053107495269    7.64191696824290   45.59379959106445    4.69999980926506   13
++ qf2   -40.94876949755260  -17.93053107495269   -7.64191696824290   45.59379959106445    4.69999980926506   13
+  sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
+  ===========  YFS3ff  ======================>           1
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    14.32142885617810    9.62430534569360  -41.94012380851230   45.59379959106445    4.69999980926510   13
+- qf2   -14.32142885617810   -9.62430534569360   41.94012380851230   45.59379959106445    4.69999980926510   13
+- sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
++ qf1    14.23085757214894   33.73018296821058   26.76662421908370   45.59369167549917    4.69999980926512   13
++ qf2   -14.23085742559990  -33.73018284966248  -26.76610122042371   45.59338450793577    4.69999980926519   13
++ pho    -0.00000014654903   -0.00000011854810   -0.00052299866000    0.00052299869396    0.00000000000305
++ sum     0.00000000000000    0.00000000000000   -0.00000000000000   91.18759918212891   91.18759918212891
+  ===========  YFSPRO  ======================>           1
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    14.32142885617810    9.62430534569360  -41.94012380851230   45.59379959106445    4.69999980926510   13
+- qf2   -14.32142885617810   -9.62430534569360   41.94012380851230   45.59379959106445    4.69999980926510   13
+- sum     0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
++ qf1    14.23085757214894   33.73018296821058   26.76662421908370   45.59369167549917    4.69999980926512   13
++ qf2   -14.23085742559990  -33.73018284966248  -26.76610122042371   45.59338450793577    4.69999980926519   13
++ pho    -0.00000014654903   -0.00000011854810   -0.00052299866000    0.00052299869396    0.00000000000305
++ sum     0.00000000000000    0.00000000000000   -0.00000000000000   91.18759918212891   91.18759918212891
+  =========== *momini* ======================>           1
+  qf1     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+  qf2     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+- sum     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
++ pho    -0.00000014654903   -0.00000011854810   -0.00052299866000    0.00052299869396    0.00000000000305
++ sum    -0.00000014654903   -0.00000011854810   -0.00052299866000    0.00052299869396    0.00000000000305
+  =========== *momfin* ======================>           1
+  qf1     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+  qf2     0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000    0.00000000000000
+@@ -258,46 +261,28 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ===========  YFS3ff  ======================>           2
+  pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+  pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1     3.50709616034889  -45.15172648550920    0.54153539583190   45.53417822792238    4.69999980926537   13
+- qf2    -3.50640302203687   45.15094819008145   -0.53117967218934   45.53323110287264    4.69999980926515   13
+- pho    -0.00000397679754    0.00000271550996   -0.06526782913404    0.06526782931168    0.00000000115481
+- pho    -0.00068832924554    0.00077464586803    0.05414624009549    0.05415615560442    0.00000000054205
+- pho    -0.00000083226894    0.00000093404976    0.00076586539599    0.00076586641779    0.00000000000662
+- sum     0.00000000000000   -0.00000000000000    0.00000000000000   91.18759918212889   91.18759918212889
+- ===========  YFS3ff  ======================>           2
+- pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+- pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1     8.55291240429810   40.19983714890709  -18.94401509978578   45.49884530075737    4.69999980926515   13
+- qf2    -8.55291466119538  -40.19983770351441   18.62835397722224   45.36832453042953    4.69999980926518   13
+- pho     0.00000153432214    0.00000266892020    0.31804523622182    0.31804523623672    0.00000000532347
+- pho     0.00000072257514   -0.00000211431287   -0.00238411365828    0.00238411470530    0.00000000004036
++ qf1   -29.32763975057769   10.00423923103481  -32.90577142289901   45.44309680330567    4.69999980926515   13
++ qf2    29.32774829801816  -10.00405303770794   31.83550180336788   44.67423273759173    4.69999980926521   13
++ pho    -0.00010854744047   -0.00018619332687    1.07026961953113    1.07026964123150    0.00000001892688
+  sum    -0.00000000000000    0.00000000000000    0.00000000000000   91.18759918212891   91.18759918212891
+- ===========  YFS3ff  ======================>           2
+- pf1     0.00000000000000    0.00000000000000   45.59379958820090   45.59379959106445    0.00051099948762
+- pf2     0.00000000000000    0.00000000000000  -45.59379958820090   45.59379959106445    0.00051099948762
+- qf1    15.71956246869605  -18.00933784900551  -38.13469597470061   45.25246876422101    4.69999980926513   13
+- qf2   -15.71920718073988   18.00875925461111   38.50288621252282   45.56282617642520    4.69999980926505   13
+- pho    -0.00035527097173    0.00057858518034   -0.37024692838860    0.37024755091623    0.00000000671732
+- pho    -0.00000001698444    0.00000000921406    0.00205669056638    0.00205669056647    0.00000000003793
+- sum     0.00000000000000    0.00000000000000   -0.00000000000000   91.18759918212891   91.18759918212891
+   generation finished 
+ 1
+       7          wt in KarLud                                                                    
+            nent            sum           bmin           bmax
+-         228056    0.21687E+06    0.00000E+00    0.20017E+06
++         228217    0.21711E+06    0.00000E+00    0.20051E+06
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.95096E+00
+-  0.0000   0.3173D+04 0                                                       I
+-  0.1000   0.1037D+04 0                                                       I
+-  0.2000   0.1206D+04 0                                                       I
+-  0.3000   0.1383D+04 0                                                       I
+-  0.4000   0.1582D+04 0                                                       I
+-  0.5000   0.1966D+04 0                                                       I
+-  0.6000   0.2426D+04 0                                                       I
+-  0.7000   0.3533D+04 0                                                       I
+-  0.8000   0.6072D+04 0X                                                      I
+-  0.9000   0.2002D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  1.0000   0.5507D+04 0X                                                      I
++    0.00000E+00    0.00000E+00    0.95131E+00
++  0.0000   0.3191D+04 0                                                       I
++  0.1000   0.1026D+04 0                                                       I
++  0.2000   0.1124D+04 0                                                       I
++  0.3000   0.1402D+04 0                                                       I
++  0.4000   0.1641D+04 0                                                       I
++  0.5000   0.1932D+04 0                                                       I
++  0.6000   0.2439D+04 0                                                       I
++  0.7000   0.3397D+04 0                                                       I
++  0.8000   0.5946D+04 0X                                                      I
++  0.9000   0.2005D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  1.0000   0.5608D+04 0X                                                      I
+   1.1000   0.0000D+00 0                                                       I
+   1.2000   0.0000D+00 0                                                       I
+   1.3000   0.0000D+00 0                                                       I
+@@ -344,32 +329,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  *                          window a                                       *
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   59    0.9509634E+00    0.000360424    0.1000000E+01
++   59    0.9513140E+00    0.000359083    0.1000000E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      228056        5507           0        1049        2289
++      228217        5608           0        1034        2222
+  *                1                 total no of events       nevtot     a0 *
+  *                0                 wt<0        events       nevneg     a1 *
+  *     568.74904003                 xs_cru vesko  [R]        xcvesk     a2 *
+- *     567.45298041  +- 0.02335378  xs_est vesko  [R]        xsve       a3 *
++ *     567.44184792  +- 0.02328375  xs_est vesko  [R]        xsve       a3 *
+  *     567.49146215  +- 0.00800875  xs_est gauss  [R]        xcgaus     a4 *
+- *      -0.00006781  +- 0.00004216  xcve/xcgs-1                         a5 *
+- *       0.95096335  +- 0.00036042      <wt>                 wtkarl     a6 *
+- *     540.85949376  +- 0.19493886  sigma_prim    [R]        xskarl     a7 *
++ *      -0.00008743  +- 0.00004203  xcve/xcgs-1                         a5 *
++ *       0.95131402  +- 0.00035908      <wt>                 wtkarl     a6 *
++ *     541.05893298  +- 0.19428514  sigma_prim    [R]        xskarl     a7 *
+  ***************************************************************************
+ 
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   79    0.1033741E+01    0.000700312    0.1963328E+01
++   79    0.1033454E+01    0.000699638    0.1963354E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      228056       94384           0           0        2289
++      228217       94456           0           0        2222
+ 1
+       5          wt yfs3    nphot.ne.0                                                           
+            nent            sum           bmin           bmax
+-         228056    0.23575E+06    0.00000E+00    0.49760E+05
++         228217    0.23585E+06    0.00000E+00    0.49862E+05
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.10337E+01
++    0.00000E+00    0.00000E+00    0.10335E+01
+  -1.0000   0.0000D+00 0                                                       I
+  -0.9000   0.0000D+00 0                                                       I
+  -0.8000   0.0000D+00 0                                                       I
+@@ -380,26 +365,26 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  -0.3000   0.0000D+00 0                                                       I
+  -0.2000   0.0000D+00 0                                                       I
+  -0.1000   0.0000D+00 0                                                       I
+- -0.0000   0.3199D+04 0XXX                                                    I
+-  0.1000   0.1152D+04 0X                                                      I
+-  0.2000   0.1217D+04 0X                                                      I
+-  0.3000   0.1300D+04 0X                                                      I
+-  0.4000   0.1734D+04 0X                                                      I
+-  0.5000   0.2203D+04 0XX                                                     I
+-  0.6000   0.3212D+04 0XXX                                                    I
+-  0.7000   0.3329D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                  I
+-  0.8000   0.4976D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  0.9000   0.2950D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                      I
+-  1.0000   0.2304D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
+-  1.1000   0.1932D+05 0XXXXXXXXXXXXXXXXXXXXX                                  I
+-  1.2000   0.1687D+05 0XXXXXXXXXXXXXXXXXX                                     I
+-  1.3000   0.8598D+04 0XXXXXXXXX                                              I
+-  1.4000   0.7079D+04 0XXXXXXX                                                I
+-  1.5000   0.6724D+04 0XXXXXXX                                                I
+-  1.6000   0.6154D+04 0XXXXXX                                                 I
+-  1.7000   0.5826D+04 0XXXXXX                                                 I
+-  1.8000   0.5192D+04 0XXXXX                                                  I
+-  1.9000   0.2682D+04 0XXX                                                    I
++ -0.0000   0.3174D+04 0XXX                                                    I
++  0.1000   0.1137D+04 0X                                                      I
++  0.2000   0.1200D+04 0X                                                      I
++  0.3000   0.1383D+04 0X                                                      I
++  0.4000   0.1686D+04 0X                                                      I
++  0.5000   0.2208D+04 0XX                                                     I
++  0.6000   0.3155D+04 0XXX                                                    I
++  0.7000   0.3363D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                  I
++  0.8000   0.4986D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  0.9000   0.2925D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                       I
++  1.0000   0.2303D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
++  1.1000   0.1959D+05 0XXXXXXXXXXXXXXXXXXXXXX                                 I
++  1.2000   0.1684D+05 0XXXXXXXXXXXXXXXXXX                                     I
++  1.3000   0.8458D+04 0XXXXXXXXX                                              I
++  1.4000   0.7145D+04 0XXXXXXXX                                               I
++  1.5000   0.6711D+04 0XXXXXXX                                                I
++  1.6000   0.6050D+04 0XXXXXX                                                 I
++  1.7000   0.5803D+04 0XXXXXX                                                 I
++  1.8000   0.5207D+04 0XXXXX                                                  I
++  1.9000   0.2694D+04 0XXX                                                    I
+   2.0000   0.0000D+00 0                                                       I
+   2.1000   0.0000D+00 0                                                       I
+   2.2000   0.0000D+00 0                                                       I
+@@ -435,10 +420,10 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                         yfs3  output - window a                         *
+  *      91.18759918                 cms energy total         cmsene     a0 *
+- *     587.93937612  +- 0.41174088  xs_tot mc r-units        xsmc       a1 *
+- *       6.14120412                 xs_tot    nanob.         xsmcnb     a3 *
+- *       0.00430076                 absolute error           erabs2     a4 *
+- *       0.00070031                 relative error           erel       a5 *
++ *     587.77570157  +- 0.41122993  xs_tot mc r-units        xsmc       a1 *
++ *       6.13949449                 xs_tot    nanob.         xsmcnb     a3 *
++ *       0.00429542                 absolute error           erabs2     a4 *
++ *       0.00069964                 relative error           erel       a5 *
+  *                2                 total no of events       nevtot     a6 *
+  *                1                 accepted    events       nevacc     a7 *
+  *                0                 wt<0        events       nevneg     a8 *
+@@ -452,32 +437,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                       yfs3   output - window b                          *
+  *                          x-sections in r-units                          *
+- *     587.92481177  +- 0.41173094            x-section     o(alf2)     b1 *
+- *     587.16918932  +- 0.41117930            x-section     o(alf1)     b2 *
+- *     559.45081991  +- 0.38989364            x-section     o(alf0)     b3 *
+- *       0.00128689  +- 0.00000199    (o(alf2)-o(alf1))    /o(alf1)     b4 *
+- *       0.04954568  +- 0.00004908    (o(alf1)-o(alf0))    /o(alf0)     b5 *
++ *     587.76112059  +- 0.41122005            x-section     o(alf2)     b1 *
++ *     587.00681843  +- 0.41066809            x-section     o(alf1)     b2 *
++ *     559.31904764  +- 0.38940812            x-section     o(alf0)     b3 *
++ *       0.00128500  +- 0.00000199    (o(alf2)-o(alf1))    /o(alf1)     b4 *
++ *       0.04950264  +- 0.00004893    (o(alf1)-o(alf0))    /o(alf0)     b5 *
+  ***************************************************************************
+ 
+- ypar(20-22)=   6.1412041201750789        7.0031178682732206E-004   587.93937611870331     
++ ypar(20-22)=   6.1394944901540534        6.9963751007010857E-004   587.77570157079936     
+   generation finished 
+ 1
+       7          wt in KarLud                                                                    
+            nent            sum           bmin           bmax
+-         228056    0.21687E+06    0.00000E+00    0.20017E+06
++         228217    0.21711E+06    0.00000E+00    0.20051E+06
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.95096E+00
+-  0.0000   0.3173D+04 0                                                       I
+-  0.1000   0.1037D+04 0                                                       I
+-  0.2000   0.1206D+04 0                                                       I
+-  0.3000   0.1383D+04 0                                                       I
+-  0.4000   0.1582D+04 0                                                       I
+-  0.5000   0.1966D+04 0                                                       I
+-  0.6000   0.2426D+04 0                                                       I
+-  0.7000   0.3533D+04 0                                                       I
+-  0.8000   0.6072D+04 0X                                                      I
+-  0.9000   0.2002D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  1.0000   0.5507D+04 0X                                                      I
++    0.00000E+00    0.00000E+00    0.95131E+00
++  0.0000   0.3191D+04 0                                                       I
++  0.1000   0.1026D+04 0                                                       I
++  0.2000   0.1124D+04 0                                                       I
++  0.3000   0.1402D+04 0                                                       I
++  0.4000   0.1641D+04 0                                                       I
++  0.5000   0.1932D+04 0                                                       I
++  0.6000   0.2439D+04 0                                                       I
++  0.7000   0.3397D+04 0                                                       I
++  0.8000   0.5946D+04 0X                                                      I
++  0.9000   0.2005D+06 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  1.0000   0.5608D+04 0X                                                      I
+   1.1000   0.0000D+00 0                                                       I
+   1.2000   0.0000D+00 0                                                       I
+   1.3000   0.0000D+00 0                                                       I
+@@ -524,32 +509,32 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  *                          window a                                       *
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   59    0.9509634E+00    0.000360424    0.1000000E+01
++   59    0.9513140E+00    0.000359083    0.1000000E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      228056        5507           0        1049        2289
++      228217        5608           0        1034        2222
+  *                1                 total no of events       nevtot     a0 *
+  *                0                 wt<0        events       nevneg     a1 *
+  *     568.74904003                 xs_cru vesko  [R]        xcvesk     a2 *
+- *     567.45298041  +- 0.02335378  xs_est vesko  [R]        xsve       a3 *
++ *     567.44184792  +- 0.02328375  xs_est vesko  [R]        xsve       a3 *
+  *     567.49146215  +- 0.00800875  xs_est gauss  [R]        xcgaus     a4 *
+- *      -0.00006781  +- 0.00004216  xcve/xcgs-1                         a5 *
+- *       0.95096335  +- 0.00036042      <wt>                 wtkarl     a6 *
+- *     540.85949376  +- 0.19493886  sigma_prim    [R]        xskarl     a7 *
++ *      -0.00008743  +- 0.00004203  xcve/xcgs-1                         a5 *
++ *       0.95131402  +- 0.00035908      <wt>                 wtkarl     a6 *
++ *     541.05893298  +- 0.19428514  sigma_prim    [R]        xskarl     a7 *
+  ***************************************************************************
+ 
+  =======================gmonit========================
+    id           averwt         errela            wwmax
+-   79    0.1033741E+01    0.000700312    0.1963328E+01
++   79    0.1033454E+01    0.000699638    0.1963354E+01
+  -----------------------------------------------------------
+       nevtot      nevacc      nevneg      nevove      nevzer
+-      228056       94384           0           0        2289
++      228217       94456           0           0        2222
+ 1
+       5          wt yfs3    nphot.ne.0                                                           
+            nent            sum           bmin           bmax
+-         228056    0.23575E+06    0.00000E+00    0.49760E+05
++         228217    0.23585E+06    0.00000E+00    0.49862E+05
+            undf           ovef           avex
+-    0.00000E+00    0.00000E+00    0.10337E+01
++    0.00000E+00    0.00000E+00    0.10335E+01
+  -1.0000   0.0000D+00 0                                                       I
+  -0.9000   0.0000D+00 0                                                       I
+  -0.8000   0.0000D+00 0                                                       I
+@@ -560,26 +545,26 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  -0.3000   0.0000D+00 0                                                       I
+  -0.2000   0.0000D+00 0                                                       I
+  -0.1000   0.0000D+00 0                                                       I
+- -0.0000   0.3199D+04 0XXX                                                    I
+-  0.1000   0.1152D+04 0X                                                      I
+-  0.2000   0.1217D+04 0X                                                      I
+-  0.3000   0.1300D+04 0X                                                      I
+-  0.4000   0.1734D+04 0X                                                      I
+-  0.5000   0.2203D+04 0XX                                                     I
+-  0.6000   0.3212D+04 0XXX                                                    I
+-  0.7000   0.3329D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                  I
+-  0.8000   0.4976D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+-  0.9000   0.2950D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                      I
+-  1.0000   0.2304D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
+-  1.1000   0.1932D+05 0XXXXXXXXXXXXXXXXXXXXX                                  I
+-  1.2000   0.1687D+05 0XXXXXXXXXXXXXXXXXX                                     I
+-  1.3000   0.8598D+04 0XXXXXXXXX                                              I
+-  1.4000   0.7079D+04 0XXXXXXX                                                I
+-  1.5000   0.6724D+04 0XXXXXXX                                                I
+-  1.6000   0.6154D+04 0XXXXXX                                                 I
+-  1.7000   0.5826D+04 0XXXXXX                                                 I
+-  1.8000   0.5192D+04 0XXXXX                                                  I
+-  1.9000   0.2682D+04 0XXX                                                    I
++ -0.0000   0.3174D+04 0XXX                                                    I
++  0.1000   0.1137D+04 0X                                                      I
++  0.2000   0.1200D+04 0X                                                      I
++  0.3000   0.1383D+04 0X                                                      I
++  0.4000   0.1686D+04 0X                                                      I
++  0.5000   0.2208D+04 0XX                                                     I
++  0.6000   0.3155D+04 0XXX                                                    I
++  0.7000   0.3363D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                  I
++  0.8000   0.4986D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
++  0.9000   0.2925D+05 0XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                       I
++  1.0000   0.2303D+05 0XXXXXXXXXXXXXXXXXXXXXXXXX                              I
++  1.1000   0.1959D+05 0XXXXXXXXXXXXXXXXXXXXXX                                 I
++  1.2000   0.1684D+05 0XXXXXXXXXXXXXXXXXX                                     I
++  1.3000   0.8458D+04 0XXXXXXXXX                                              I
++  1.4000   0.7145D+04 0XXXXXXXX                                               I
++  1.5000   0.6711D+04 0XXXXXXX                                                I
++  1.6000   0.6050D+04 0XXXXXX                                                 I
++  1.7000   0.5803D+04 0XXXXXX                                                 I
++  1.8000   0.5207D+04 0XXXXX                                                  I
++  1.9000   0.2694D+04 0XXX                                                    I
+   2.0000   0.0000D+00 0                                                       I
+   2.1000   0.0000D+00 0                                                       I
+   2.2000   0.0000D+00 0                                                       I
+@@ -615,10 +600,10 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                         yfs3  output - window a                         *
+  *      91.18759918                 cms energy total         cmsene     a0 *
+- *     587.93937612  +- 0.41174088  xs_tot mc r-units        xsmc       a1 *
+- *       6.14120412                 xs_tot    nanob.         xsmcnb     a3 *
+- *       0.00430076                 absolute error           erabs2     a4 *
+- *       0.00070031                 relative error           erel       a5 *
++ *     587.77570157  +- 0.41122993  xs_tot mc r-units        xsmc       a1 *
++ *       6.13949449                 xs_tot    nanob.         xsmcnb     a3 *
++ *       0.00429542                 absolute error           erabs2     a4 *
++ *       0.00069964                 relative error           erel       a5 *
+  *                2                 total no of events       nevtot     a6 *
+  *                1                 accepted    events       nevacc     a7 *
+  *                0                 wt<0        events       nevneg     a8 *
+@@ -632,23 +617,23 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  ***************************************************************************
+  *                       yfs3   output - window b                          *
+  *                          x-sections in r-units                          *
+- *     587.92481177  +- 0.41173094            x-section     o(alf2)     b1 *
+- *     587.16918932  +- 0.41117930            x-section     o(alf1)     b2 *
+- *     559.45081991  +- 0.38989364            x-section     o(alf0)     b3 *
+- *       0.00128689  +- 0.00000199    (o(alf2)-o(alf1))    /o(alf1)     b4 *
+- *       0.04954568  +- 0.00004908    (o(alf1)-o(alf0))    /o(alf0)     b5 *
++ *     587.76112059  +- 0.41122005            x-section     o(alf2)     b1 *
++ *     587.00681843  +- 0.41066809            x-section     o(alf1)     b2 *
++ *     559.31904764  +- 0.38940812            x-section     o(alf0)     b3 *
++ *       0.00128500  +- 0.00000199    (o(alf2)-o(alf1))    /o(alf1)     b4 *
++ *       0.04950264  +- 0.00004893    (o(alf1)-o(alf0))    /o(alf0)     b5 *
+  ***************************************************************************
+ 
+- ypar(20-22)=   6.1412041201750789        7.0031178682732206E-004   587.93937611870331     
++ ypar(20-22)=   6.1394944901540534        6.9963751007010857E-004   587.77570157079936     
+  ==========================================
+  ========= WEIGHTS IN EVENTE ==============
+  ==========================================
+  =======================WMONIT========================
+    ID           AVERWT         ERRELA            WWMAX
+-   13    0.1058307E+01    0.000165035    0.1528912E+01
++   13    0.1058338E+01    0.000164892    0.1784353E+01
+  -----------------------------------------------------------
+       NEVTOT      NEVACC      NEVNEG      NEVOVE      NEVZER
+-       94384       50000           0           0           0
++       94456       50000           0           0           0
+ 
+ 
+ 
+@@ -659,8 +644,8 @@ marran initialized: ij,kl,ijkl,ntot,ntot2=      1802      9373  54217137
+  K                         ==========      Z. Was        =========         K
+  K                         ============= FINAL REPORT ============         K
+  K               50000     Number of generated events                      K
+- K         6.499365807     Total cross sections in nanobarns               K
+- K         0.004676261     Absolute error                                  K
+- K         0.000719495     Relative error                                  K
++ K         6.497743607     Total cross sections in nanobarns               K
++ K         0.004670616     Absolute error                                  K
++ K         0.000718806     Relative error                                  K
+  KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+ 
+diff --git a/build_gfortran.sh b/build_gfortran.sh
+index 518a4ed..b7d9a2c 100755
+--- a/build_gfortran.sh
++++ b/build_gfortran.sh
+@@ -3,6 +3,8 @@
+ # 1999 reference outputs in korz_new/february/prod1. -fno-automatic -finit-local-zero stand in
+ # for HP f77 -K (static, zero-initialised storage). Do not build from korz_new/koralz_source/:
+ # that flattened bundle is out of sync with the sources and fails TAUOLA's THB check.
++# demo1 (no radiation) must match its reference number for number. The radiative demos only
++# agree statistically (xs_tot pull): their references were made before the PHOCIN overrun fix.
+ set -e
+ FF="-O -std=legacy -fno-automatic -finit-local-zero -w"
+ cd "$(dirname "$0")/korale-exp-final/korz_new/february"
+@@ -15,5 +17,10 @@ for p in dm:dm demo:DEMO demo1:DEMO1 demo2:DEMO2; do
+   mkdir -p run_$exe
+   (cd run_$exe && ../$exe.exe > $exe.out 2>&1)
+   echo "== $exe vs prod1/$ref.out"
+-  python3 ../../../validate_numdiff.py run_$exe/$exe.out prod1/$ref.out 1e-5
++  if [ "$exe" = demo1 ]; then
++    python3 ../../../validate_numdiff.py run_$exe/$exe.out prod1/$ref.out 1e-5
++  else
++    paste <(grep -m1 "xs_tot mc r-units" run_$exe/$exe.out) <(grep -m1 "xs_tot mc r-units" prod1/$ref.out) \
++      | awk '{x=$2; ex=$4; y=$12; ey=$14; printf "xs_tot %.5f+-%.5f vs ref %.5f+-%.5f, pull %.2f\n", x, ex, y, ey, (x-y)/sqrt(ex*ex+ey*ey)}'
++  fi
+ done
+diff --git a/korale-exp-final/lib/photos.f b/korale-exp-final/lib/photos.f
+index 13816a8..dec12e6 100755
+--- a/korale-exp-final/lib/photos.f
++++ b/korale-exp-final/lib/photos.f
+@@ -173,7 +173,7 @@ C--   Return if already initialized...
+ C--
+ C--   Preset switch  for  photon emission to 'TRUE' for each particle in
+ C--   /PH_HEPEVT/, this interface is needed for KORALB and KORALZ...
+-      DO 10 I=1,NMXHEP
++      DO 10 I=1,2000
+    10 QEDRAD(I)=.TRUE.
+ C--
+ C--   Logical output unit for printing of PHOTOS error messages
+-- 
+2.52.0
+
