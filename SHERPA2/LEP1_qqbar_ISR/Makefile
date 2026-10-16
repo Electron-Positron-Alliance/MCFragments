@@ -1,4 +1,7 @@
-PREFIX      = /home/badea/code/sherpa226
+ifndef MCF_PREFIX
+$(error set MCF_PREFIX to the install root)
+endif
+PREFIX      = $(MCF_PREFIX)/sherpa226
 HEPMC2_DIR  = $(PREFIX)
 ROOTCFLAGS  = $(shell root-config --cflags)
 ROOTLIBS    = $(shell root-config --libs)
