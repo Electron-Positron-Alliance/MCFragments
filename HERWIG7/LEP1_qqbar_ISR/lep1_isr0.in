@@ -2,7 +2,7 @@
 ##################################################
 # Herwig 7.1.5 runcard for e+e- -> Z -> hadrons at LEP1
 # sqrt(s) = 91.188 GeV, ISR OFF (no QED radiation from initial state)
-# Override EECollider.in default: set QEDPartner FFonly to disable II QED ISR
+# Built-in matrix element MEee2gZ2qq; ISR off = unresolved e+/e- (NoPDF) and no initial-state shower
 ##################################################
 
 read snippets/EECollider.in

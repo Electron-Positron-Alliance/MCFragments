@@ -2,7 +2,7 @@
 ##################################################
 # Herwig 7.1.5 runcard for e+e- -> Z -> hadrons at LEP1
 # sqrt(s) = 91.188 GeV, ISR ON
-# Uses Matchbox framework with lepton structure functions for proper ISR
+# Built-in matrix element MEee2gZ2qq; ISR on = lepton structure function (LeptonPDF) + initial-state shower
 ##################################################
 
 read snippets/EECollider.in
