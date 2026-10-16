@@ -36,10 +36,20 @@ to `$MCF_PREFIX/src`. Our production used `MCF_PREFIX=/home/badea/code`, except 
 | `$MCF_PREFIX/local` | HepMC3 3.2.5 | `common/setup_hepmc3.sh` |
 | `$MCF_PREFIX/local/photos` | PHOTOS++ 3.64 | `common/setup_photospp.sh` (after HepMC3) |
 
+Set up everything, in this order (each `setup.sh` starts from scratch in its own directory under `$MCF_PREFIX`):
 ```sh
 export MCF_PREFIX=$HOME/mcf MCF_JOBS=8      # MCF_JOBS: parallel build jobs (default: all cores)
 common/setup_root.sh && common/setup_hepmc3.sh && common/setup_photospp.sh
+PYTHIA8/LEP1_qqbar_ISR/setup.sh             # needs ROOT 6.36.04
+KKMCEE5/LEP1_qqbar_ISR/setup.sh             # needs ROOT 6.36.04, HepMC3, PHOTOS++, PYTHIA 8
+KORALZ4/LEP1_qqbar_ISR/setup.sh             # needs HepMC3 and KKMCee (its hadronizer)
+HERWIG7/LEP1_qqbar_ISR/setup.sh             # self-contained
+SHERPA2/LEP1_qqbar_ISR/setup.sh             # self-contained
+SHERPA3/LEP1_qqbar_ISR/setup.sh             # needs HepMC3
 ```
+Each `SETUP.md` then gives the production command and reference values: `common/summarize.C` prints a few numbers for
+a 1000-event check run, to compare with the ones listed there. A complete install of all generators took 7.3 GB on
+the validation machine, 4.5 GB of it unpacked sources and build trees in `$MCF_PREFIX/src`.
 HepMC3 is used by KKMCee, KORALZ and Sherpa 3; PHOTOS++ by KKMCee.
 
 ### Platform and prerequisites

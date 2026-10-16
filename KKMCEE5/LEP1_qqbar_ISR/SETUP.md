@@ -46,6 +46,20 @@ part) hadronizes with PYTHIA's default seed (19780503). This is what was run.
 History: a first KKMCee production (v1, weighted events `xpar(10)=1` and a mu-only DIZET table) was the C_ISR reference
 until 2026-10-02. It is superseded by this one and not included.
 
+## Reference values
+
+To check a new installation, run 1000 events of shard 0 and compare the output of `common/summarize.C` with the lines
+below (fresh build, 2026-10-16). These equal the first 1000 events of the production shards 0 (checked 2026-10-16), so a
+matching installation reproduces the production.
+```sh
+OUTDIR=$PWD/ref NEVENTS=1000 $MCF_PREFIX/kkmcee/ProdRun/run_shard.sh 0 0    # and 1 0
+root -l -b -q 'common/summarize.C("ref/kkmcee_isr0_0.root")'
+```
+```
+kkmcee_isr0_0  events 1000  thrust(event 0) 0.887663  <thrust> 0.932869  <nParticle> 109.7500  <sum isCharged> 37.6390
+kkmcee_isr1_0  events 1000  thrust(event 0) 0.875025  <thrust> 0.928410  <nParticle> 111.0210  <sum isCharged> 37.6980
+```
+
 ## Verification (2026-10-16)
 
 Fresh build from `setup.sh` into an empty `MCF_PREFIX`: the DIZET table is byte-identical to the production table, and

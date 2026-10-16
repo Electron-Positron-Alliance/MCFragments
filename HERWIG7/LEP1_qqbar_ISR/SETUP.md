@@ -50,6 +50,20 @@ compiler flags (`-march=nocona -mtune=haswell -ftree-vectorize -O2 ...`, plus `-
 directory). `setup.sh` does not reproduce that environment; the fresh build below, with default flags, gives the same
 events.
 
+## Reference values
+
+To check a new installation, run 1000 events of shard 0 and compare the output of `common/summarize.C` with the lines
+below (fresh build, 2026-10-16). These equal the first 1000 events of the production shards 0 (checked 2026-10-16), so a
+matching installation reproduces the production.
+```sh
+NEVENTS=1000 SEEDS=1 HERWIG7/LEP1_qqbar_ISR/run_production.sh
+root -l -b -q "common/summarize.C(\"$MCF_PREFIX/herwig715/run/herwig715_isr0_0.root\")"
+```
+```
+herwig715_isr0_0  events 1000  thrust(event 0) 0.976836  <thrust> 0.930593  <nParticle> 105.3160  <sum isCharged> 40.3450
+herwig715_isr1_0  events 1000  thrust(event 0) 0.981746  <thrust> 0.933084  <nParticle> 110.4750  <sum isCharged> 44.0020
+```
+
 ## Verification (2026-10-16)
 
 Fresh build from `setup.sh` into an empty `MCF_PREFIX`; `run_production.sh` with `NEVENTS=100` for isr1 seed 1 and

@@ -50,6 +50,24 @@ Known differences from the archived ntuples:
 - `hepmcToRoot.cc` was edited on 2026-03-27, after the ntuples were made: it leaves the `pwflag` branch unfilled, while
   the archived ntuples have it filled. The analysis derives `pwflag` from `pdgid` itself.
 
+Production build environment: LHAPDF and Sherpa were configured inside a conda environment, which added its compiler
+flags (`-march=nocona -mtune=haswell -ftree-vectorize -O2 ...`, plus `-isystem` to the conda include directory).
+`setup.sh` does not reproduce that environment; the fresh build below, with default flags, gives the same events.
+
+## Reference values
+
+To check a new installation, run 1000 events of shard 0 and compare the output of `common/summarize.C` with the lines
+below (fresh build, 2026-10-16). These equal the first 1000 events of the production shards 0 (checked 2026-10-16), so a
+matching installation reproduces the production.
+```sh
+NEVENTS=1000 SEEDS=1 SHERPA2/LEP1_qqbar_ISR/run_production.sh
+root -l -b -q "common/summarize.C(\"$MCF_PREFIX/sherpa226/run/sherpa226_isr0_0.root\")"
+```
+```
+sherpa226_isr0_0  events 1000  thrust(event 0) 0.968882  <thrust> 0.935914  <nParticle> 87.6440  <sum isCharged> 36.2830
+sherpa226_isr1_0  events 1000  thrust(event 0) 0.942853  <thrust> 0.933481  <nParticle> 90.7430  <sum isCharged> 36.4250
+```
+
 ## Verification (2026-10-16)
 
 Fresh build from `setup.sh` into an empty `MCF_PREFIX`; `run_production.sh` with `NEVENTS=100` for isr0 seed 1 and

@@ -67,6 +67,21 @@ the check with ISR off) and the keep-all ISR-on sample.
 Event record: per beam, Sherpa 3 merges the YFS photons into one final-state photon and keeps the individual photons
 with status 3, so an ISR photon count must use either the merged photons or the status-3 ones, not both.
 
+## Reference values
+
+To check a new installation, run 1000 events of shard 0 and compare the output of `common/summarize.C` with the lines
+below (fresh build, 2026-10-16). These equal the first 1000 events of the production shards 0 (checked 2026-10-16), so a
+matching installation reproduces the production.
+```sh
+OUTDIR=$PWD/ref NEVENTS=1000 SHERPA3/LEP1_qqbar_ISR/run_shard.sh 0 1    # and 1 1, and VARIANT=keepall ... 1 1
+root -l -b -q 'common/summarize.C("ref/sherpa305_isr0_0.root")'
+```
+```
+sherpa305_isr0_0          events 1000  thrust(event 0) 0.931512  <thrust> 0.931400  <nParticle> 86.8060  <sum isCharged> 37.3110
+sherpa305_isr1_0          events 1000  thrust(event 0) 0.978924  <thrust> 0.933564  <nParticle> 89.5670  <sum isCharged> 37.4170
+sherpa305_keepall_isr1_0  events 1000  thrust(event 0) 0.978924  <thrust> 0.933456  <nParticle> 89.1270  <sum isCharged> 37.2370
+```
+
 ## Verification (2026-10-16)
 
 - Fresh build from `setup.sh` into an empty `MCF_PREFIX`; `run_shard.sh` with `NEVENTS=200` for isr0, isr1 and

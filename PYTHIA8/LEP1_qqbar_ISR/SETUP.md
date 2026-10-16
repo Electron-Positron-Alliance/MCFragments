@@ -34,6 +34,22 @@ that this is the only setting that differs from the default-shower samples (Vinc
 
 The `tgenBefore` ntuple layout of `main304.cc` is written by every generator in `*/LEP1_qqbar_ISR`.
 
+## Reference values
+
+To check a new installation, run 1000 events of shard 0 and compare the output of `common/summarize.C` with the lines
+below (fresh build, 2026-10-16). These equal the first 1000 events of the production shards 0 (checked 2026-10-16), so a
+matching installation reproduces the production.
+```sh
+PYTHIA8/LEP1_qqbar_ISR/run.sh 1 1 0 1000 ref    # and 1 1 1, 1 2 0, 1 2 1
+root -l -b -q 'common/summarize.C("ref/pythia8317_isr0_0.root")'
+```
+```
+pythia8317_isr0_0         events 1000  thrust(event 0) 0.831696  <thrust> 0.935137  <nParticle> 111.7550  <sum isCharged> 40.7800
+pythia8317_isr1_0         events 1000  thrust(event 0) 0.906056  <thrust> 0.932067  <nParticle> 119.3880  <sum isCharged> 43.0190
+pythia8317_vincia_isr0_0  events 1000  thrust(event 0) 0.979765  <thrust> 0.932802  <nParticle> 105.8480  <sum isCharged> 39.5070
+pythia8317_vincia_isr1_0  events 1000  thrust(event 0) 0.965986  <thrust> 0.930946  <nParticle> 108.2570  <sum isCharged> 39.9280
+```
+
 ## Verification (2026-10-16)
 
 Fresh build from `setup.sh` into an empty `MCF_PREFIX`; `run.sh` for 300 events of isr0 seed 200001 and of Vincia isr1

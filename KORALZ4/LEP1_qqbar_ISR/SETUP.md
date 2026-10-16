@@ -45,6 +45,21 @@ for a 500k shard, from `pilot/`: ISR off 110633/85895/110656/85772/107044, ISR o
 Known difference: `hadronizeKKMC` does not set a PYTHIA seed, so every flavour part hadronizes with PYTHIA's default
 seed (19780503). This is what was run.
 
+## Reference values
+
+To check a new installation, run 1000 events of shard 0 and compare the output of `common/summarize.C` with the lines
+below (fresh build, 2026-10-16). `run_shard.sh` splits the 1000 events over the five flavours by the pilot cross
+sections, so these are not a prefix of the 500k production shard; they come from the fresh build, whose q=d events match
+the production (Verification).
+```sh
+OUTDIR=$PWD/ref NEVENTS=1000 WORKROOT=$PWD/ref/work $MCF_PREFIX/koralz/ProdRun/run_shard.sh 0 0    # and 1 0
+root -l -b -q 'common/summarize.C("ref/koralz_isr0_0.root")'
+```
+```
+koralz_isr0_0  events 1000  thrust(event 0) 0.886846  <thrust> 0.928496  <nParticle> 110.9610  <sum isCharged> 38.3640
+koralz_isr1_0  events 1000  thrust(event 0) 0.876965  <thrust> 0.930674  <nParticle> 111.2270  <sum isCharged> 37.8630
+```
+
 ## Verification (2026-10-16)
 
 Fresh build from `setup.sh` into an empty `MCF_PREFIX`. `MainKoralzHepMC 300 q1.hepmc3 1 1 1100001` (q=d, isr1,
