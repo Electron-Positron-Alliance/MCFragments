@@ -20,29 +20,42 @@ in the analysis (`ALEPH_Analysis_EventShapes`: inputs in `Studies/thrust/base.ya
 | Sherpa 3.0.5 | 91.188 | `YFS: MODE: Off` / `ISR` | study only, not in the envelope | `SHERPA3/LEP1_qqbar_ISR` |
 | PYTHIA 6.1 (archived ALEPH 1994 MC), conversion-cleaned / uncleaned | | | cross-check, drawn only | not here: official ALEPH MC |
 
-Each folder has a `SETUP.md` (build, run, seeds, how the files were checked) and exact copies of the files that made
-the samples. The scripts contain absolute paths under `/home/badea/code/...`: either install into the same layout or edit
-the `PRODDIR`/`PREFIX`/`OUTDIR`/`RUN` variables at the top of each script.
+Each folder has a `SETUP.md` (build, run, seeds, how the files were checked) and the files that made the samples.
+Nothing large is stored here: the setup scripts download every upstream source and check its sha256
+(`common/sources.txt`).
 
-### Platform
+### Install layout
 
-RHEL 9.8 (x86_64), GCC/gfortran 11.5.0. Two ROOT installs are used, deliberately:
-- ROOT 6.36.04 binary release (`root_v6.36.04.Linux-almalinux9.6-x86_64-gcc11.5.tar.gz`, sha256 `80a1f40e...6e5a2b`):
-  `root-config` on PATH when building PYTHIA 8.317, KKMCee and `MainHepMC`.
-- ROOT 6.38.04 system package (`root-core-6.38.04-5.el9`, `/usr/lib64/root`): used to build `hadronizeKKMC`, the
+Everything installs under one root, `MCF_PREFIX` (any writable directory). Downloads go
+to `$MCF_PREFIX/src`. Our production used `MCF_PREFIX=/home/badea/code`, except that ROOT 6.36.04 sat in
+`/home/badea/root` rather than `$MCF_PREFIX/root`.
+
+| Path | Contents | Made by |
+|---|---|---|
+| `$MCF_PREFIX/root` | ROOT 6.36.04 binary release | `common/setup_root.sh` |
+| `$MCF_PREFIX/local` | HepMC3 3.2.5 | `common/setup_hepmc3.sh` |
+| `$MCF_PREFIX/local/photos` | PHOTOS++ 3.64 | `common/setup_photospp.sh` (after HepMC3) |
+
+```sh
+export MCF_PREFIX=$HOME/mcf MCF_JOBS=8      # MCF_JOBS: parallel build jobs (default: all cores)
+common/setup_root.sh && common/setup_hepmc3.sh && common/setup_photospp.sh
+```
+HepMC3 is used by KKMCee, KORALZ and Sherpa 3; PHOTOS++ by KKMCee.
+
+### Platform and prerequisites
+
+RHEL 9.8 (x86_64), GCC/gfortran 11.5.0; other platforms are untested. System packages used: `gcc gcc-c++
+gcc-gfortran make cmake autoconf automake libtool git curl tar bzip2 xz patch sqlite-devel gsl-devel zlib-devel`,
+and ROOT 6.38.04 from EPEL (`dnf install root`; `root-6.38.04-5.el9` was used). Building Sherpa 3 also needs network
+access, because its build fetches libzip v1.9.2 from GitHub.
+
+Two ROOT installs are used, deliberately:
+- ROOT 6.36.04 binary release (`$MCF_PREFIX/root`): `root-config` on PATH when building PYTHIA 8.317, KKMCee and
+  `MainHepMC`.
+- ROOT 6.38.04 system package (`/usr/lib64/root`, `/usr/bin/root-config`): used to build `hadronizeKKMC`, the
   Herwig/Sherpa 2 `hepmcToRoot` and the Sherpa 3 `hepmc3ToRoot`, and at runtime for KKMCee/KORALZ
   (`KKMCEE5/LEP1_qqbar_ISR/prodrun/setup_kkmc_env.sh`).
 
-### Shared dependencies (prefix `/home/badea/code/local`)
-
-| Package | Version | File | sha256 |
-|---|---|---|---|
-| HepMC3 | 3.2.5 | `HepMC3-3.2.5.tar.gz` | `cd0f75c80f75549c59cc2a829ece7601c77de97cb2a5ab75790cac8e1d585032` |
-| PHOTOS++ | 3.64 | `PHOTOS.3.64.tar.gz` | `92c545d83c0f654ca40949c7e36e79a96230421659a4621cd9ae9c82dd5a30ee` |
-
-```sh
-# HepMC3 3.2.5: cmake, CMAKE_INSTALL_PREFIX=/home/badea/code/local, HEPMC3_ENABLE_ROOTIO=OFF
-# PHOTOS++ 3.64:
-./configure --with-hepmc3=/home/badea/code/local --without-hepmc --prefix=/home/badea/code/local/photos CXXFLAGS="-std=c++11 -g -O2"
-```
-HepMC3 is used by KKMCee, KORALZ and Sherpa 3; PHOTOS++ by KKMCee.
+Some upstream sources need small changes to compile with GCC 11 (const comparators, a missing `<cstdint>`, a
+macOS-only include); they are in `HERWIG7/LEP1_qqbar_ISR/patches/` (ThePEG, Herwig, CLHEP) and
+`SHERPA2/LEP1_qqbar_ISR/patches/` (Sherpa 2.2.6). None changes physics.

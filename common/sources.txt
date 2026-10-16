@@ -1,0 +1,19 @@
+# Every upstream source the */LEP1_qqbar_ISR setups download: file name, sha256, URL.
+# common/fetch.sh NAME downloads NAME into $MCF_PREFIX/src and stops unless the sha256 matches.
+# KKMCee is not a tarball: KKMCEE5/LEP1_qqbar_ISR/setup.sh clones it at a fixed commit.
+root_v6.36.04.Linux-almalinux9.6-x86_64-gcc11.5.tar.gz 80a1f40e8651cd0c5f1229cb38d8cfd33fabc451e1626b04ebb499dfbe6e5a2b https://root.cern/download/root_v6.36.04.Linux-almalinux9.6-x86_64-gcc11.5.tar.gz
+HepMC3-3.2.5.tar.gz cd0f75c80f75549c59cc2a829ece7601c77de97cb2a5ab75790cac8e1d585032 https://hepmc.web.cern.ch/hepmc/releases/HepMC3-3.2.5.tar.gz
+PHOTOS.3.64.tar.gz 92c545d83c0f654ca40949c7e36e79a96230421659a4621cd9ae9c82dd5a30ee https://photospp.web.cern.ch/photospp/resources/PHOTOS.3.64/PHOTOS.3.64.tar.gz
+pythia8317.tgz 1ae551d14dac495ddfe6b344792035ebe410fe6c6004d44a335e0ece0e745adf https://pythia.org/releases/pythia83/pythia8317.tgz
+acbk_v3_0.tar.gz 3489fe614647ed32a3f24c5e7796d2d518b6a146d4c8708cd182cdf3be14c112 https://data.mendeley.com/public-files/datasets/hbc6jgxfpp/files/0afd96e1-785e-43fd-9b6c-9bb576e9508a/file_downloaded
+hepmc2.06.11.tgz 86b66ea0278f803cde5774de8bd187dd42c870367f1cbf6cdaec8dc7cf6afc10 https://hepmc.web.cern.ch/hepmc/releases/hepmc2.06.11.tgz
+fastjet-3.3.4.tar.gz 432b51401e1335697c9248519ce3737809808fc1f6d1644bfae948716dddfc03 http://fastjet.fr/repo/fastjet-3.3.4.tar.gz
+LHAPDF-6.3.0.tar.gz ed4d8772b7e6be26d1a7682a13c87338d67821847aa1640d78d67d2cef8b9b5d https://lhapdf.hepforge.org/downloads/LHAPDF-6.3.0.tar.gz
+MMHT2014lo68cl.tar.gz 9586f40e3f620039f5bf082ef52281485a50c915abf44f365db87d44c896990f https://lhapdfsets.web.cern.ch/current/MMHT2014lo68cl.tar.gz
+MMHT2014nlo68cl.tar.gz cff81fc54e365e67fd0851eb6c7b1c726c077f8da09d2ddf0ac6d49f7fe13f0d https://lhapdfsets.web.cern.ch/current/MMHT2014nlo68cl.tar.gz
+clhep-2.4.5.1.tgz 2517c9b344ad9f55974786ae6e7a0ef8b22f4abcbf506df91194ea2299ce3813 https://proj-clhep.web.cern.ch/proj-clhep/dist1/clhep-2.4.5.1.tgz
+boost_1_75_0.tar.bz2 953db31e016db7bb207f11432bef7df100516eeb746843fa0486a222e3fd49cb https://archives.boost.io/release/1.75.0/source/boost_1_75_0.tar.bz2
+ThePEG-2.1.5.tar.bz2 c61a00fb6cf406f0f98e8c934683d8d5efcb655747842113abc92e9526e4b5e6 https://thepeg.hepforge.org/downloads/ThePEG-2.1.5.tar.bz2
+Herwig-7.1.5.tar.bz2 3965a6ac5eb48e7546578c2a30013f70caf2a3da23e37b067b8128f753d9d94a https://herwig.hepforge.org/downloads/Herwig-7.1.5.tar.bz2
+SHERPA-MC-2.2.6.tar.gz f114e68ed610ff80b772d5ee50fb1cd129d0219f38f0825cbb80ca1bfe9c4fb1 https://sherpa.hepforge.org/downloads/SHERPA-MC-2.2.6.tar.gz
+sherpa-v3.0.5.tar.gz 6c3804d48e1955ee82f713b3d3ffd16b013a9912752f488aab0ba6c1b1634288 https://gitlab.com/sherpa-team/sherpa/-/archive/v3.0.5/sherpa-v3.0.5.tar.gz
