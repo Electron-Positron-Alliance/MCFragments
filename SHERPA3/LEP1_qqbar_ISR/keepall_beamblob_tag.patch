@@ -1,0 +1,20 @@
+--- a/REMNANTS/Main/Remnant_Handler.C
++++ b/REMNANTS/Main/Remnant_Handler.C
+@@ -175,9 +175,14 @@
+   if (!m_kinematics.FillBlobs(bloblist)) {
+     msg_Debugging() << METHOD << ": Filling of beam blobs failed.\n";
+     rv = Return_Value::New_Event;
+-  } else if (!CheckBeamBreakup(bloblist) || !m_decorrelator(p_softblob)) {
+-    msg_Error() << METHOD << " failed. Will return new event\n";
+-    rv = Return_Value::New_Event;
++  } else {
++    // DIAGNOSTIC BUILD ONLY: keep events failing the beam-blob check and tag them by event number.
++    if (!CheckBeamBreakup(bloblist))
++      std::cout << "BEAMBLOB_FAIL " << rpa->gen.NumberOfGeneratedEvents() << std::endl;
++    if (!m_decorrelator(p_softblob)) {
++      msg_Error() << METHOD << " failed. Will return new event\n";
++      rv = Return_Value::New_Event;
++    }
+   }
+   Reset();
+   return rv;
