@@ -1,0 +1,127 @@
+--- a/MatrixElement/DiagramBase.cc
++++ b/MatrixElement/DiagramBase.cc
+@@ -22,7 +22,7 @@
+ DiagramBase::~DiagramBase() {}
+ 
+ struct ParticleOrdering {
+-  bool operator()(tcPDPtr p1, tcPDPtr p2) {
++  bool operator()(tcPDPtr p1, tcPDPtr p2) const {
+     return abs(p1->id()) > abs(p2->id()) ||
+       ( abs(p1->id()) == abs(p2->id()) && p1->id() > p2->id() ) ||
+       ( p1->id() == p2->id() && p1->fullName() > p2->fullName() );
+--- a/PDT/DecayMode.cc
++++ b/PDT/DecayMode.cc
+@@ -333,7 +333,7 @@
+ }
+ 
+ struct ParticleOrdering {
+-  bool operator()(tcPDPtr p1, tcPDPtr p2) {
++  bool operator()(tcPDPtr p1, tcPDPtr p2) const {
+     return abs(p1->id()) > abs(p2->id()) ||
+       ( abs(p1->id()) == abs(p2->id()) && p1->id() > p2->id() ) ||
+       ( p1->id() == p2->id() && p1->fullName() > p2->fullName() );
+@@ -341,7 +341,7 @@
+ };
+ 
+ struct ModeOrdering {
+-  bool operator()(tcDMPtr d1, tcDMPtr d2) {
++  bool operator()(tcDMPtr d1, tcDMPtr d2) const {
+     ParticleOrdering ord;
+     return ord(d1->parent(), d2->parent()) ||
+       ( !ord(d2->parent(), d1->parent()) &&
+@@ -351,7 +351,7 @@
+ };
+ 
+ struct MatcherOrdering {
+-  bool operator()(tcPMPtr m1, tcPMPtr m2) {
++  bool operator()(tcPMPtr m1, tcPMPtr m2) const {
+     return m1->name() < m2->name() ||
+       ( m1->name() == m2->name() && m1->fullName() < m2->fullName() );
+   }
+--- a/PDT/MatcherBase.cc
++++ b/PDT/MatcherBase.cc
+@@ -155,7 +155,7 @@
+ }
+ 
+ struct ParticleOrdering {
+-  bool operator()(tcPDPtr p1, tcPDPtr p2) {
++  bool operator()(tcPDPtr p1, tcPDPtr p2) const {
+     return abs(p1->id()) > abs(p2->id()) ||
+       ( abs(p1->id()) == abs(p2->id()) && p1->id() > p2->id() ) ||
+       ( p1->id() == p2->id() && p1->fullName() > p2->fullName() );
+@@ -163,7 +163,7 @@
+ };
+ 
+ struct MatcherOrdering {
+-  bool operator()(tcPMPtr m1, tcPMPtr m2) {
++  bool operator()(tcPMPtr m1, tcPMPtr m2) const {
+     return m1->name() < m2->name() ||
+       ( m1->name() == m2->name() && m1->fullName() < m2->fullName() );
+   }
+--- a/PDT/ParticleData.cc
++++ b/PDT/ParticleData.cc
+@@ -571,7 +571,7 @@
+ ClassDescription<ParticleData> ParticleData::initParticleData;
+ 
+ struct ParticleOrdering {
+-  bool operator()(tcPDPtr p1, tcPDPtr p2) {
++  bool operator()(tcPDPtr p1, tcPDPtr p2) const {
+     return abs(p1->id()) > abs(p2->id()) ||
+       ( abs(p1->id()) == abs(p2->id()) && p1->id() > p2->id() ) ||
+       ( p1->id() == p2->id() && p1->fullName() > p2->fullName() );
+@@ -579,7 +579,7 @@
+ };
+ 
+ struct ModeOrdering {
+-  bool operator()(const tcDMPtr & d1, const tcDMPtr & d2) {
++  bool operator()(const tcDMPtr & d1, const tcDMPtr & d2) const {
+     ParticleOrdering ord;
+     return ord(d1->parent(), d2->parent()) ||
+       ( !ord(d2->parent(), d1->parent()) &&
+--- a/Repository/EventGenerator.cc
++++ b/Repository/EventGenerator.cc
+@@ -808,14 +808,14 @@
+ }
+ 
+ struct MatcherOrdering {
+-  bool operator()(tcPMPtr m1, tcPMPtr m2) {
++  bool operator()(tcPMPtr m1, tcPMPtr m2) const {
+     return m1->name() < m2->name() ||
+       ( m1->name() == m2->name() && m1->fullName() < m2->fullName() );
+   }
+ };
+ 
+ struct ObjectOrdering {
+-  bool operator()(tcIBPtr i1, tcIBPtr i2) {
++  bool operator()(tcIBPtr i1, tcIBPtr i2) const {
+     return i1->fullName() < i2->fullName();
+   }
+ };
+--- a/Repository/Repository.cc
++++ b/Repository/Repository.cc
+@@ -326,7 +326,7 @@
+ }
+ 
+ struct ParticleOrdering {
+-  bool operator()(tcPDPtr p1, tcPDPtr p2) {
++  bool operator()(tcPDPtr p1, tcPDPtr p2) const {
+     return abs(p1->id()) > abs(p2->id()) ||
+       ( abs(p1->id()) == abs(p2->id()) && p1->id() > p2->id() ) ||
+       ( p1->id() == p2->id() && p1->fullName() > p2->fullName() );
+@@ -334,14 +334,14 @@
+ };
+ 
+ struct MatcherOrdering {
+-  bool operator()(tcPMPtr m1, tcPMPtr m2) {
++  bool operator()(tcPMPtr m1, tcPMPtr m2) const {
+     return m1->name() < m2->name() ||
+       ( m1->name() == m2->name() && m1->fullName() < m2->fullName() );
+   }
+ };
+ 
+ struct InterfaceOrdering {
+-  bool operator()(tcIBPtr i1, tcIBPtr i2) {
++  bool operator()(tcIBPtr i1, tcIBPtr i2) const {
+     return i1->fullName() < i2->fullName();
+   }
+ };

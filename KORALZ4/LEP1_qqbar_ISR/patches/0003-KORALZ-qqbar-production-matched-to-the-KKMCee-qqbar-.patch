@@ -1,0 +1,390 @@
+From 1021b1417b9a5a01c18f69c8ae8517effd29d74e Mon Sep 17 00:00:00 2001
+From: badeaa3 <badeaa3@gmail.com>
+Date: Fri, 2 Oct 2026 06:13:59 -0500
+Subject: [PATCH 3/5] KORALZ qqbar production matched to the KKMCee qqbar
+ setup, hadronized by KKMCee's hadronizeKKMC
+
+MainKoralzHepMC.f runs KORALZ 4.04 quark mode (ITFIN=500+q) and hepmcWriter.cc writes HEPEVT
+to HepMC3 in the layout hadronizeKKMC reads (beams status 4; q, qbar, ISR photons status 1;
+energies recomputed on shell from the single-precision momenta). Inputs follow
+kkmcee/ProdRun/workQQ_isr{0,1} + KKMCee_defaults: sqrt(s)=91.1876, MZ, mH=125.1, mt=173,
+DIZET EW (KEYGSW=4, KEYWLB=1), constituent quark masses d,u,s,c,b = 0.083,0.100,0.215,1.5,4.7,
+vvmin=1e-5, vvmax=0.99, e- along +z. ISR on = YFS3 ISR only (KEYRAD=12, KEYYFS=1000001, forced
+for quarks); ISR off = KEYRAD=0. One flavour per run, so run_shard.sh splits each 500k shard
+by the pilot cross sections (pilot/sigma_nb.txt, 50k events per flavour and state):
+ISR off 41.53 nb, ISR on 30.38 nb.
+---
+ ProdRun/MainKoralzHepMC.f  | 179 +++++++++++++++++++++++++++++++++++++
+ ProdRun/Makefile           |  21 +++++
+ ProdRun/hepmcWriter.cc     |  65 ++++++++++++++
+ ProdRun/pilot/sigma_nb.txt |   8 ++
+ ProdRun/run_production.sh  |  12 +++
+ ProdRun/run_shard.sh       |  36 ++++++++
+ 6 files changed, 321 insertions(+)
+ create mode 100644 ProdRun/MainKoralzHepMC.f
+ create mode 100644 ProdRun/Makefile
+ create mode 100644 ProdRun/hepmcWriter.cc
+ create mode 100644 ProdRun/pilot/sigma_nb.txt
+ create mode 100755 ProdRun/run_production.sh
+ create mode 100755 ProdRun/run_shard.sh
+
+diff --git a/ProdRun/MainKoralzHepMC.f b/ProdRun/MainKoralzHepMC.f
+new file mode 100644
+index 0000000..4248bcd
+--- /dev/null
++++ b/ProdRun/MainKoralzHepMC.f
+@@ -0,0 +1,179 @@
++      PROGRAM KZHEPM
++C     KORALZ 4.04 e+e- -> q qbar (+ YFS3 ISR photons) written to HepMC3 for KKMCee's hadronizeKKMC.
++C     Inputs mirror KKMCee ProdRun/workQQ_isr{0,1}/pro.input + KKMCee_defaults.
++C     Usage: MainKoralzHepMC NEVT OUT.hepmc3 PDGQ(1-5) ISR(0/1) SEED
++      COMMON / INOUT / INUT,IOUT
++      COMMON  / / BLAN(10000)
++      REAL*4    E1(3),E2(3),PB1(4),PB2(4)
++      REAL*4    XPR(40)
++      INTEGER   NPR(40)
++      REAL*4    AMQ(5)
++      CHARACTER*512 ARG,OUTF
++C KKMCee constituent quark masses d,u,s,c,b (xpar 516..556; d,u "for comparison with KoralZ")
++      DATA AMQ /0.083, 0.100, 0.215, 1.5, 4.7/
++      INUT=5
++      IOUT=6
++      CALL GLIMIT(20000)
++      CALL GOUTPU(6)
++      IF (COMMAND_ARGUMENT_COUNT().NE.5) STOP 'usage'
++      CALL GET_COMMAND_ARGUMENT(1,ARG)
++      READ(ARG,*) NEVT
++      CALL GET_COMMAND_ARGUMENT(2,OUTF)
++      CALL GET_COMMAND_ARGUMENT(3,ARG)
++      READ(ARG,*) KFQ
++      CALL GET_COMMAND_ARGUMENT(4,ARG)
++      READ(ARG,*) ISR
++      CALL GET_COMMAND_ARGUMENT(5,ARG)
++      READ(ARG,*) ISEED
++      IF (KFQ.LT.1.OR.KFQ.GT.5) STOP 'PDGQ must be 1..5'
++      IF (ISR.NE.0.AND.ISR.NE.1) STOP 'ISR must be 0 or 1'
++      CALL RMARIN(ISEED,0,0)
++      DO I=1,40
++        XPR(I)=0
++        NPR(I)=0
++      ENDDO
++C ISR on = YFS3 multiphoton, ISR only (forced for quarks); ISR off = no bremsstrahlung.
++      KEYRAD=0
++      IF (ISR.EQ.1) KEYRAD=12
++      NPR(1)=1
++      NPR(2)=1
++      NPR(3)=4
++      NPR(4)=KEYRAD
++      NPR(5)=1
++      NPR(6)=1
++      NPR(7)=500+KFQ
++      NPR(8)=0
++      NPR(9)=1
++      NPR(11)=3
++      NPR(12)=1000001
++      XPR(1)=91.1876
++      XPR(2)=125.1
++      XPR(3)=173.0
++      XPR(4)=1
++      XPR(5)=-1
++      XPR(8)=0.010
++      XPR(9)=AMQ(KFQ)
++      XPR(11)=0.01
++      XPR(12)=1E-5
++      XPR(13)=0.99
++      XPR(14)=0.001
++      DO I=1,3
++        E1(I)=0
++        E2(I)=0
++      ENDDO
++      ENE=91.1876/2
++      PB1(1)=0
++      PB1(2)=0
++      PB1(3)=ENE
++      PB1(4)=ENE
++      DO I=1,3
++        PB2(I)=-PB1(I)
++      ENDDO
++      PB2(4)=PB1(4)
++C electron along +z, as in KKMCee
++      KFB=11
++      CALL KORALZ(-1,KFB,PB1,E1,-KFB,PB2,E2,XPR,NPR)
++      CALL HEPMCOPEN(OUTF)
++      DO IEV=1,NEVT
++        CALL KORALZ(0,KFB,PB1,E1,-KFB,PB2,E2,XPR,NPR)
++        CALL HEPMCWRITE(IEV)
++      ENDDO
++      CALL HEPMCCLOSE
++      CALL KORALZ(1,0,PB1,E1,0,PB2,E2,XPR,NPR)
++      END
++      SUBROUTINE TAURDF(KTO)
++C THIS ROUTINE CAN BE CALLED BEFORE ANY TAU+ OR TAU- EVENT IS GENERATED
++C IT CAN BE USED TO GENERATE TAU+ AND TAU- SAMPLES OF DIFFERENT
++C CONTENTS
++      COMMON / TAUKLE / BRA1,BRK0,BRK0B,BRKS
++      REAL*4            BRA1,BRK0,BRK0B,BRKS
++      COMMON / TAUBRA / GAMPRT(30),JLIST(30),NCHAN
++      IF (KTO.EQ.1) THEN
++C     ==================
++C LIST OF BRANCHING RATIOS
++      NCHAN = 19
++      DO 1 I = 1,30
++      IF (I.LE.NCHAN) THEN
++        JLIST(I) = I
++        IF(I.EQ. 1) GAMPRT(I) = .0000
++        IF(I.EQ. 2) GAMPRT(I) = .0000
++        IF(I.EQ. 3) GAMPRT(I) = .0000
++        IF(I.EQ. 4) GAMPRT(I) = .0000
++        IF(I.EQ. 5) GAMPRT(I) = .0000
++        IF(I.EQ. 6) GAMPRT(I) = .0000
++        IF(I.EQ. 7) GAMPRT(I) = .0000
++        IF(I.EQ. 8) GAMPRT(I) = 1.0000
++        IF(I.EQ. 9) GAMPRT(I) = 1.0000
++        IF(I.EQ.10) GAMPRT(I) = 1.0000
++        IF(I.EQ.11) GAMPRT(I) = 1.0000
++        IF(I.EQ.12) GAMPRT(I) = 1.0000
++        IF(I.EQ.13) GAMPRT(I) = 1.0000
++        IF(I.EQ.14) GAMPRT(I) = 1.0000
++        IF(I.EQ.15) GAMPRT(I) = 1.0000
++        IF(I.EQ.16) GAMPRT(I) = 1.0000
++        IF(I.EQ.17) GAMPRT(I) = 1.0000
++        IF(I.EQ.18) GAMPRT(I) = 1.0000
++        IF(I.EQ.19) GAMPRT(I) = 1.0000
++      ELSE
++        JLIST(I) = 0
++        GAMPRT(I) = 0.
++      ENDIF
++   1  CONTINUE
++C --- COEFFICIENTS TO FIX RATIO OF:
++C --- A1 3CHARGED/ A1 1CHARGED 2 NEUTRALS MATRIX ELEMENTS (MASLESS LIM.)
++C --- PROBABILITY OF K0 TO BE KS
++C --- PROBABILITY OF K0B TO BE KS
++C --- RATIO OF COEFFICIENTS FOR K*--> K0 PI-
++C --- ALL COEFFICENTS SHOULD BE IN THE RANGE (0.0,1.0)
++C --- THEY MEANING IS PROBABILITY OF THE FIRST CHOICE ONLY IF ONE
++C --- NEGLECTS MASS-PHASE SPACE EFFECTS
++      BRA1=0.5
++      BRK0=0.5
++      BRK0B=0.5
++      BRKS=0.6667
++      ELSE
++C     ====
++C LIST OF BRANCHING RATIOS
++      NCHAN = 19
++      DO 2 I = 1,30
++      IF (I.LE.NCHAN) THEN
++        JLIST(I) = I
++        IF(I.EQ. 1) GAMPRT(I) = .0000
++        IF(I.EQ. 2) GAMPRT(I) = .0000
++        IF(I.EQ. 3) GAMPRT(I) = .0000
++        IF(I.EQ. 4) GAMPRT(I) = .0000
++        IF(I.EQ. 5) GAMPRT(I) = .0000
++        IF(I.EQ. 6) GAMPRT(I) = .0000
++        IF(I.EQ. 7) GAMPRT(I) = .0000
++        IF(I.EQ. 8) GAMPRT(I) = 1.0000
++        IF(I.EQ. 9) GAMPRT(I) = 1.0000
++        IF(I.EQ.10) GAMPRT(I) = 1.0000
++        IF(I.EQ.11) GAMPRT(I) = 1.0000
++        IF(I.EQ.12) GAMPRT(I) = 1.0000
++        IF(I.EQ.13) GAMPRT(I) = 1.0000
++        IF(I.EQ.14) GAMPRT(I) = 1.0000
++        IF(I.EQ.15) GAMPRT(I) = 1.0000
++        IF(I.EQ.16) GAMPRT(I) = 1.0000
++        IF(I.EQ.17) GAMPRT(I) = 1.0000
++        IF(I.EQ.18) GAMPRT(I) = 1.0000
++        IF(I.EQ.19) GAMPRT(I) = 1.0000
++      ELSE
++        JLIST(I) = 0
++        GAMPRT(I) = 0.
++      ENDIF
++   2  CONTINUE
++C --- COEFFICIENTS TO FIX RATIO OF:
++C --- A1 3CHARGED/ A1 1CHARGED 2 NEUTRALS MATRIX ELEMENTS (MASLESS LIM.)
++C --- PROBABILITY OF K0 TO BE KS
++C --- PROBABILITY OF K0B TO BE KS
++C --- RATIO OF COEFFICIENTS FOR K*--> K0 PI-
++C --- ALL COEFFICENTS SHOULD BE IN THE RANGE (0.0,1.0)
++C --- THEY MEANING IS PROBABILITY OF THE FIRST CHOICE ONLY IF ONE
++C --- NEGLECTS MASS-PHASE SPACE EFFECTS
++      BRA1=0.5
++      BRK0=0.5
++      BRK0B=0.5
++      BRKS=0.6667
++      ENDIF
++C     =====
++      END
+diff --git a/ProdRun/Makefile b/ProdRun/Makefile
+new file mode 100644
+index 0000000..f6455a0
+--- /dev/null
++++ b/ProdRun/Makefile
+@@ -0,0 +1,21 @@
++# Links the KORALZ libraries built by ../build_gfortran.sh with the HepMC3 writer.
++KZ   = ../korale-exp-final
++FF   = -O -std=legacy -fno-automatic -finit-local-zero -w
++HEPMC = /home/badea/code/local
++LIBS = $(KZ)/korz_new/lib/glib.a $(KZ)/korz_new/diz4_9/glib.a $(KZ)/korz_new/yfs3-4-0/glib.a \
++       $(KZ)/tauola/lib/glib.a $(KZ)/lib/glib.a $(KZ)/korz_new/nunulib/glib.a $(KZ)/korz_new/ttglib/glib.a
++
++MainKoralzHepMC: MainKoralzHepMC.o hepmcWriter.o $(LIBS)
++	gfortran -o $@ MainKoralzHepMC.o hepmcWriter.o $(LIBS) -Wl,-rpath,$(HEPMC)/lib64 -L$(HEPMC)/lib64 -lHepMC3 -lstdc++
++
++MainKoralzHepMC.o: MainKoralzHepMC.f
++	gfortran $(FF) -c $<
++
++hepmcWriter.o: hepmcWriter.cc
++	g++ -O2 -std=c++17 -I$(HEPMC)/include -c $<
++
++$(KZ)/korz_new/diz4_9/glib.a: $(KZ)/korz_new/diz4_9/dzface.f
++	cd $(KZ)/korz_new/diz4_9 && make F77=gfortran FFLAGS="$(FF)"
++
++clean:
++	rm -f *.o MainKoralzHepMC
+diff --git a/ProdRun/hepmcWriter.cc b/ProdRun/hepmcWriter.cc
+new file mode 100644
+index 0000000..169cae8
+--- /dev/null
++++ b/ProdRun/hepmcWriter.cc
+@@ -0,0 +1,65 @@
++// HEPEVT (KORALZ/TAUOLA layout: NMXHEP=2000, single precision) -> HepMC3 Asciiv3 in the layout
++// hadronizeKKMC reads: beams status 4, q / qbar / ISR photons status 1. Called from MainKoralzHepMC.f.
++#include <cmath>
++#include <cstdio>
++#include <cstdlib>
++#include <memory>
++#include <string>
++
++#include "HepMC3/GenEvent.h"
++#include "HepMC3/GenParticle.h"
++#include "HepMC3/GenVertex.h"
++#include "HepMC3/WriterAscii.h"
++
++extern "C" {
++extern struct {
++  int nevhep, nhep, isthep[2000], idhep[2000], jmohep[2000][2], jdahep[2000][2];
++  float phep[2000][5], vhep[2000][4];
++} hepevt_;
++}
++
++static std::unique_ptr<HepMC3::WriterAscii> writer;
++
++static void fail(const std::string& msg) {
++  std::fprintf(stderr, "hepmcWriter: %s\n", msg.c_str());
++  std::exit(3);
++}
++
++extern "C" void hepmcopen_(const char* path, size_t len) {
++  std::string p(path, len);
++  p.erase(p.find_last_not_of(' ') + 1);
++  writer = std::make_unique<HepMC3::WriterAscii>(p);
++  if (writer->failed()) fail("cannot open " + p);
++}
++
++extern "C" void hepmcwrite_(const int* iev) {
++  HepMC3::GenEvent ev(HepMC3::Units::GEV, HepMC3::Units::MM);
++  ev.set_event_number(*iev);
++  auto vtx = std::make_shared<HepMC3::GenVertex>();
++  int nBeam = 0, nQ = 0, nQb = 0;
++  for (int i = 0; i < hepevt_.nhep; ++i) {
++    const float* p = hepevt_.phep[i];
++    const int id = hepevt_.idhep[i], st = hepevt_.isthep[i];
++    const double px = p[0], py = p[1], pz = p[2], m = p[4];
++    if (st == 3) {  // beams
++      vtx->add_particle_in(std::make_shared<HepMC3::GenParticle>(
++          HepMC3::FourVector(px, py, pz, p[3]), id, 4));
++      ++nBeam;
++    } else if (st == 1) {
++      // Energy recomputed on shell in double precision: HEPEVT stores single-precision momenta, and
++      // hadronizeKKMC takes the parton mass from E^2-p^2 (light quarks would otherwise lose ~2%).
++      const double e = std::sqrt(px * px + py * py + pz * pz + m * m);
++      vtx->add_particle_out(std::make_shared<HepMC3::GenParticle>(
++          HepMC3::FourVector(px, py, pz, e), id, 1));
++      if (id >= 1 && id <= 5) ++nQ;
++      if (id <= -1 && id >= -5) ++nQb;
++      if (std::abs(id) > 5 && id != 22) fail("unexpected final-state pdg " + std::to_string(id));
++    }
++  }
++  if (nBeam != 2 || nQ != 1 || nQb != 1)
++    fail("event " + std::to_string(*iev) + ": expected 2 beams, 1 q, 1 qbar");
++  ev.add_vertex(vtx);
++  writer->write_event(ev);
++}
++
++extern "C" void hepmcclose_() { writer->close(); }
+diff --git a/ProdRun/pilot/sigma_nb.txt b/ProdRun/pilot/sigma_nb.txt
+new file mode 100644
+index 0000000..b678306
+--- /dev/null
++++ b/ProdRun/pilot/sigma_nb.txt
+@@ -0,0 +1,8 @@
++# Pilot cross sections [nb]: run_shard.sh splits each shard's events over the five flavours in proportion to
++# them. KORALZ's "Total cross sections in nanobarns" from 50k events of MainKoralzHepMC per flavour and ISR state.
++# q  ISR off      ISR on
++1    9.184733391  6.719258308
++2    7.143380642  5.222352505
++3    9.184564590  6.719132423
++4    7.132888317  5.215899467
++5    8.889354706  6.499365807
+diff --git a/ProdRun/run_production.sh b/ProdRun/run_production.sh
+new file mode 100755
+index 0000000..71e1475
+--- /dev/null
++++ b/ProdRun/run_production.sh
+@@ -0,0 +1,12 @@
++#!/bin/bash
++# 10 shards x 500k events per ISR state, MAXPROC concurrent (single-threaded) shards.
++set -u
++PRODDIR=/home/badea/code/koralz/ProdRun
++LOGDIR=/home/badea/code/koralz/qqbar/logs
++MAXPROC=${MAXPROC:-20}
++mkdir -p "$LOGDIR"
++echo "run_production: START $(date '+%F %T') maxproc=$MAXPROC"
++for S in 0 1; do for I in $(seq 0 9); do echo "$S $I"; done; done | xargs -P "$MAXPROC" -n 2 bash -c \
++  'S="$0"; I="$1"; '"$PRODDIR"'/run_shard.sh "$S" "$I" > '"$LOGDIR"'/shard_isr${S}_${I}.log 2>&1'
++echo "run_production: ALL SHARDS FINISHED $(date '+%F %T')"
++ls /home/badea/code/koralz/qqbar/koralz_isr*.root 2>/dev/null | wc -l
+diff --git a/ProdRun/run_shard.sh b/ProdRun/run_shard.sh
+new file mode 100755
+index 0000000..9f8fd43
+--- /dev/null
++++ b/ProdRun/run_shard.sh
+@@ -0,0 +1,36 @@
++#!/bin/bash
++# run_shard.sh ISR_STATE SHARD_INDEX: one KORALZ qqbar shard of NEVENTS, hadronized exactly like the
++# KKMCee shards (/home/badea/code/kkmcee/ProdRun/run_shard.sh + hadronizeKKMC). KORALZ makes one
++# flavour per run, so the shard is 5 runs with N_q proportional to the pilot cross sections.
++set -u
++PRODDIR=/home/badea/code/koralz/ProdRun
++OUTDIR=${OUTDIR:-/home/badea/code/koralz/qqbar}
++HADRONIZE=/home/badea/code/kkmcee/ProdRun/hadronizeKKMC
++NEVENTS=${NEVENTS:-500000}
++S="$1"
++I="$2"
++source /home/badea/code/kkmcee/ProdRun/setup_kkmc_env.sh
++WORK="${WORKROOT:-$PRODDIR}/prod_isr${S}_${I}"
++OUTROOT="$OUTDIR/koralz_isr${S}_${I}.root"
++rm -rf "$WORK"
++mkdir -p "$WORK" "$OUTDIR"
++cd "$WORK" || exit 99
++# Events per flavour from the pilot sigma_q (pilot/sigma_nb.txt), largest remainder to d.
++read -r -a NQ <<< "$(awk -v c=$((S+2)) '!/^#/ {print $c}' "$PRODDIR/pilot/sigma_nb.txt" | awk -v n=$NEVENTS '{s[NR]=$1; t+=$1} END {for(q=1;q<=5;q++){c[q]=int(n*s[q]/t); u+=c[q]} c[1]+=n-u; for(q=1;q<=5;q++) printf "%d ", c[q]}')"
++[ "${#NQ[@]}" -eq 5 ] || { echo "[shard isr${S}_${I}] ERROR: pilot cross sections missing"; exit 1; }
++echo "[shard isr${S}_${I}] START $(date '+%F %T') N(d,u,s,c,b) = ${NQ[*]}"
++PARTS=()
++for q in 1 2 3 4 5; do
++  SEED=$(( 1000000 + S*100000 + I*10 + q ))
++  N=${NQ[$((q-1))]}
++  "$PRODDIR/MainKoralzHepMC" "$N" "q${q}.hepmc3" "$q" "$S" "$SEED" > "gen_q${q}.log" 2>&1 \
++    || { echo "[shard isr${S}_${I}] ERROR: KORALZ q$q failed, see $WORK/gen_q${q}.log"; exit 1; }
++  "$HADRONIZE" -f "q${q}.hepmc3" -o "q${q}.root" -n "$N" > "had_q${q}.log" 2>&1 \
++    || { echo "[shard isr${S}_${I}] ERROR: hadronize q$q failed, see $WORK/had_q${q}.log"; exit 2; }
++  rm -f "q${q}.hepmc3"
++  PARTS+=("q${q}.root")
++  echo "[shard isr${S}_${I}] q$q N=$N seed=$SEED $(tail -1 had_q${q}.log)"
++done
++hadd -f "$OUTROOT" "${PARTS[@]}" > hadd.log 2>&1 || { echo "[shard isr${S}_${I}] ERROR: hadd failed"; exit 3; }
++rm -f "${PARTS[@]}"
++echo "[shard isr${S}_${I}] DONE $(date '+%F %T') root=$(du -h "$OUTROOT" | cut -f1)"
+-- 
+2.52.0
+

@@ -1,0 +1,20 @@
+(run){
+  % Sherpa 2.2.6 runcard for e+e- -> Z -> hadrons at LEP1 (91.188 GeV)
+  % ISR OFF: PDF_LIBRARY None removes lepton structure functions -> no QED ISR
+
+  EVENTS 500000;
+
+  ALPHAS(MZ) 0.1188;
+
+  BEAM_1  11; BEAM_ENERGY_1 45.594;
+  BEAM_2 -11; BEAM_ENERGY_2 45.594;
+  PDF_LIBRARY None;
+
+  EVENT_OUTPUT HepMC_GenEvent[events];
+}(run)
+
+(processes){
+  Process 11 -11 -> 93 93;
+  Order (*,2);
+  End process;
+}(processes)

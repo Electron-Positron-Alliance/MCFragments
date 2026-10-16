@@ -1,0 +1,26 @@
+From 2122904aadfeb3ba31cd038b2ac101ce79f5092a Mon Sep 17 00:00:00 2001
+From: badeaa3 <badeaa3@gmail.com>
+Date: Fri, 2 Oct 2026 04:55:20 -0500
+Subject: [PATCH 2/4] DIZET 5.0 interface: alpha_s(MZ) 0.125 -> 0.1202, the
+ value KKMCee feeds DIZET (alfQCDMZ, KKMCee_defaults xpar 809)
+
+---
+ korale-exp-final/korz_new/diz4_9/dzface.f | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/korale-exp-final/korz_new/diz4_9/dzface.f b/korale-exp-final/korz_new/diz4_9/dzface.f
+index f16ace0..fc007a3 100644
+--- a/korale-exp-final/korz_new/diz4_9/dzface.f
++++ b/korale-exp-final/korz_new/diz4_9/dzface.f
+@@ -83,7 +83,7 @@ C======================================================================
+       HMASS=XMH
+       WMASS=   80D0
+       ZMASS=XMZ
+-      ALFAS=0.125D0
++      ALFAS=0.1202D0
+       XKOLOR=KOLOR
+ *
+ 
+-- 
+2.52.0
+

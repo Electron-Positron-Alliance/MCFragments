@@ -1,0 +1,100 @@
+From 8a91e1d17261ad9ad62249ecb4d0dc9c34929f80 Mon Sep 17 00:00:00 2001
+From: badeaa3 <badeaa3@gmail.com>
+Date: Fri, 2 Oct 2026 06:45:05 -0500
+Subject: [PATCH 4/5] Fix the PHOTOS PHOCIN overrun that made every KORALZ run
+ identical, and seed YFS3's MARRAN
+
+PHOCIN sets QEDRAD(I)=.TRUE. for I=1..NMXHEP=10000, but /PHOQED/ is QEDRAD(2000) everywhere
+(photos.f, tauola.f FILHEP), so it wrote 32 kB past the common. In the MainKoralzHepMC layout
+that covered /RASET1/, the RANMAR/MARRAN state, after the driver had seeded it: all 20
+production shards were the same events. Loop to 2000. Separately, YFS3's MARRAN shares
+/RASET1/ and re-seeds it to 54217137 on its first call unless MARINI ran, so the driver now
+calls MARINI as well as RMARIN.
+
+Evidence: two seeds now give different events, and the same seed gives byte-identical events
+in two link layouts (with/without an extra /RASET1/ declaration), ISR on and off. The pilot
+cross sections were biased by the corrupted generator (ISR off +0.4%, ~30 sigma) and are
+redone. demo1 (no radiation) still matches its reference to 5e-13; the radiative demos'
+references were made before this fix and now agree statistically (xs_tot pulls 0.06, -0.01,
+0.94).
+---
+ ProdRun/MainKoralzHepMC.f     |  3 +++
+ ProdRun/pilot/sigma_nb.txt    | 10 +++++-----
+ build_gfortran.sh             |  9 ++++++++-
+ korale-exp-final/lib/photos.f |  2 +-
+ 4 files changed, 17 insertions(+), 7 deletions(-)
+
+diff --git a/ProdRun/MainKoralzHepMC.f b/ProdRun/MainKoralzHepMC.f
+index 4248bcd..7b9a801 100644
+--- a/ProdRun/MainKoralzHepMC.f
++++ b/ProdRun/MainKoralzHepMC.f
+@@ -27,7 +27,10 @@ C KKMCee constituent quark masses d,u,s,c,b (xpar 516..556; d,u "for comparison
+       READ(ARG,*) ISEED
+       IF (KFQ.LT.1.OR.KFQ.GT.5) STOP 'PDGQ must be 1..5'
+       IF (ISR.NE.0.AND.ISR.NE.1) STOP 'ISR must be 0 or 1'
++C TAUOLA RANMAR and YFS3 MARRAN share /RASET1/; MARRAN would re-seed it to 54217137 on its
++C first call (YFS3, ISR on) unless MARINI is called first. Seed both.
+       CALL RMARIN(ISEED,0,0)
++      CALL MARINI(ISEED,0,0)
+       DO I=1,40
+         XPR(I)=0
+         NPR(I)=0
+diff --git a/ProdRun/pilot/sigma_nb.txt b/ProdRun/pilot/sigma_nb.txt
+index b678306..afb947a 100644
+--- a/ProdRun/pilot/sigma_nb.txt
++++ b/ProdRun/pilot/sigma_nb.txt
+@@ -1,8 +1,8 @@
+ # Pilot cross sections [nb]: run_shard.sh splits each shard's events over the five flavours in proportion to
+ # them. KORALZ's "Total cross sections in nanobarns" from 50k events of MainKoralzHepMC per flavour and ISR state.
+ # q  ISR off      ISR on
+-1    9.184733391  6.719258308
+-2    7.143380642  5.222352505
+-3    9.184564590  6.719132423
+-4    7.132888317  5.215899467
+-5    8.889354706  6.499365807
++1    9.147885323  6.716128826
++2    7.102560043  5.217211723
++3    9.150024414  6.718598843
++4    7.092352867  5.215838432
++5    8.851321220  6.497743607
+diff --git a/build_gfortran.sh b/build_gfortran.sh
+index 518a4ed..b7d9a2c 100755
+--- a/build_gfortran.sh
++++ b/build_gfortran.sh
+@@ -3,6 +3,8 @@
+ # 1999 reference outputs in korz_new/february/prod1. -fno-automatic -finit-local-zero stand in
+ # for HP f77 -K (static, zero-initialised storage). Do not build from korz_new/koralz_source/:
+ # that flattened bundle is out of sync with the sources and fails TAUOLA's THB check.
++# demo1 (no radiation) must match its reference number for number. The radiative demos only
++# agree statistically (xs_tot pull): their references were made before the PHOCIN overrun fix.
+ set -e
+ FF="-O -std=legacy -fno-automatic -finit-local-zero -w"
+ cd "$(dirname "$0")/korale-exp-final/korz_new/february"
+@@ -15,5 +17,10 @@ for p in dm:dm demo:DEMO demo1:DEMO1 demo2:DEMO2; do
+   mkdir -p run_$exe
+   (cd run_$exe && ../$exe.exe > $exe.out 2>&1)
+   echo "== $exe vs prod1/$ref.out"
+-  python3 ../../../validate_numdiff.py run_$exe/$exe.out prod1/$ref.out 1e-5
++  if [ "$exe" = demo1 ]; then
++    python3 ../../../validate_numdiff.py run_$exe/$exe.out prod1/$ref.out 1e-5
++  else
++    paste <(grep -m1 "xs_tot mc r-units" run_$exe/$exe.out) <(grep -m1 "xs_tot mc r-units" prod1/$ref.out) \
++      | awk '{x=$2; ex=$4; y=$12; ey=$14; printf "xs_tot %.5f+-%.5f vs ref %.5f+-%.5f, pull %.2f\n", x, ex, y, ey, (x-y)/sqrt(ex*ex+ey*ey)}'
++  fi
+ done
+diff --git a/korale-exp-final/lib/photos.f b/korale-exp-final/lib/photos.f
+index 13816a8..dec12e6 100755
+--- a/korale-exp-final/lib/photos.f
++++ b/korale-exp-final/lib/photos.f
+@@ -173,7 +173,7 @@ C--   Return if already initialized...
+ C--
+ C--   Preset switch  for  photon emission to 'TRUE' for each particle in
+ C--   /PH_HEPEVT/, this interface is needed for KORALB and KORALZ...
+-      DO 10 I=1,NMXHEP
++      DO 10 I=1,2000
+    10 QEDRAD(I)=.TRUE.
+ C--
+ C--   Logical output unit for printing of PHOTOS error messages
+-- 
+2.52.0
+
