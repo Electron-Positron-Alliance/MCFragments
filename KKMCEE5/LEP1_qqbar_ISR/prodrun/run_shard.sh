@@ -16,9 +16,10 @@
 # -----------------------------------------------------------------------------
 set -u
 
-PRODDIR=/home/badea/code/kkmcee/ProdRun
-OUTDIR=/home/badea/code/kkmcee/qqbar_v2
-NEVENTS=500000
+: "${MCF_PREFIX:?set MCF_PREFIX to the install root}"
+PRODDIR=$MCF_PREFIX/kkmcee/ProdRun
+OUTDIR=${OUTDIR:-$MCF_PREFIX/kkmcee/qqbar_v2}
+NEVENTS=${NEVENTS:-500000}
 
 S="$1"      # ISR state
 I="$2"      # shard index

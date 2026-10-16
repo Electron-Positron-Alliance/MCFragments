@@ -11,9 +11,10 @@
 # -----------------------------------------------------------------------------
 set -u
 
-PRODDIR=/home/badea/code/kkmcee/ProdRun
-LOGDIR=/home/badea/code/kkmcee/qqbar_v2/logs
-MAXPROC=20
+: "${MCF_PREFIX:?set MCF_PREFIX to the install root}"
+PRODDIR=$MCF_PREFIX/kkmcee/ProdRun
+LOGDIR=$MCF_PREFIX/kkmcee/qqbar_v2/logs
+MAXPROC=${MAXPROC:-20}
 
 mkdir -p "$LOGDIR"
 
@@ -31,4 +32,4 @@ done | xargs -P "$MAXPROC" -n 2 bash -c \
 
 echo "run_production: ALL SHARDS FINISHED $(date '+%F %T')"
 echo "run_production: ROOT files:"
-ls -la /home/badea/code/kkmcee/qqbar_v2/kkmcee_isr*.root 2>/dev/null | wc -l
+ls -la $MCF_PREFIX/kkmcee/qqbar_v2/kkmcee_isr*.root 2>/dev/null | wc -l
