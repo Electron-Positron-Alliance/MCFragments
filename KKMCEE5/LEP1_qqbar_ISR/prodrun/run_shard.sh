@@ -34,22 +34,11 @@ WORK="$PRODDIR/prod2_isr${S}_${I}"
 TMPHEP="$WORK/kkmcee_isr${S}_${I}.hepmc3"
 OUTROOT="$OUTDIR/kkmcee_isr${S}_${I}.root"
 
-# Idempotent: skip a shard whose ROOT already exists and is non-trivial in size
-# (guards against re-doing the dry-run shard or re-running after a partial pass).
-if [ -s "$OUTROOT" ]; then
-    SZ=$(stat -c%s "$OUTROOT")
-    if [ "$SZ" -gt 100000000 ]; then
-        echo "[shard isr${S}_${I}] SKIP: $OUTROOT already exists ($(du -h "$OUTROOT" | cut -f1))"
-        exit 0
-    fi
-fi
-
 rm -rf "$WORK"
 mkdir -p "$WORK"
 cd "$WORK" || exit 99
 
-# Cards: defaults + per-ISR pro.input (unweighted, KeyWgt=0) + the 5-quark DIZET table from
-# workQQ2_dizet (2026-10-02; the first production used the mu-only workSmoke table).
+# Cards: defaults + per-ISR pro.input (unweighted, KeyWgt=0) + the 5-quark DIZET table from workQQ2_dizet.
 ln -sf "$PRODDIR/../SRCee/KKMCee_defaults" KKMCee_defaults
 ln -sf "$PRODDIR/workQQ2_dizet/DIZET-table1" DIZET-table1
 cp "$PRODDIR/workQQ2_isr${S}/pro.input"    pro.input

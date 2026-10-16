@@ -22,8 +22,9 @@ for set in MMHT2014lo68cl MMHT2014nlo68cl; do tar xzf "$MCF_PREFIX/src/$set.tar.
   && ./configure --prefix="$P" --enable-hepmc2="$P" --enable-lhapdf="$P" --enable-gzip=no --enable-mpi=no \
   && make -j "$J" && make install)
 
-# Run directory: the cards and the converter (built against the system ROOT, root-config from PATH).
+# Run directory: the cards and the HepMC2 -> ntuple converter (common/hepmcToRoot.cc, system ROOT 6.38.04).
 mkdir -p "$P/run"
-cp "$HERE"/Run_isr0.dat "$HERE"/Run_isr1.dat "$HERE"/hepmcToRoot.cc "$HERE"/Makefile "$P/run/"
-make -C "$P/run"
+cp "$HERE"/Run_isr0.dat "$HERE"/Run_isr1.dat "$P/run/"
+g++ -O2 -std=c++14 -Wall -I"$P/include" $(/usr/bin/root-config --cflags) -o "$P/run/hepmcToRoot" \
+  "$HERE/../../common/hepmcToRoot.cc" -L"$P/lib" -Wl,-rpath,"$P/lib" -lHepMC $(/usr/bin/root-config --libs)
 echo "setup.sh: Sherpa 2.2.6 ready; run with $HERE/run_production.sh"

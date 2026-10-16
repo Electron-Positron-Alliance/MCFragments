@@ -5,22 +5,21 @@ Contains the MC fragments utilized to generate simulations used by the EPA.
 
 Paired ISR-off (`isr0`) / ISR-on (`isr1`) samples of e+e- -> qqbar (5 flavours) at the Z pole, used for the ALEPH
 thrust QED ISR correction C_ISR = (ISR off) / (ISR on). Each sample is 10 shards x 500k events per ISR state, written
-as a `tgenBefore` ntuple with the branch layout of `PYTHIA8/LEP1_qqbar_ISR/main304.cc`. The correction itself is computed
-in the analysis (`ALEPH_Analysis_EventShapes`: inputs in `Studies/thrust/base.yaml`, `isr_generators` and
-`isr_cross_checks`; code in `Unfolding/thrust/scripts/compute_isr_correction.py`).
+as a `tgenBefore` ntuple with the branch layout of `PYTHIA8/LEP1_qqbar_ISR/main304.cc`.
 
-| Generator | sqrt(s) [GeV] | ISR off / on | Role in C_ISR | Folder |
-|---|---|---|---|---|
-| KKMCee 5 (ISR) + PYTHIA 8.317 (FSR + hadronization) | 91.1876 | `KeyISR` = `xpar(20)` 0 / 1 | reference (nominal) | `KKMCEE5/LEP1_qqbar_ISR` |
-| KORALZ 4.04 (ISR) + the same PYTHIA 8.317 hadronizer | 91.1876 | `KEYRAD` 0 / 12 | cross-check, drawn only | `KORALZ4/LEP1_qqbar_ISR` |
-| PYTHIA 8.317, simple shower | 91.1876 | `PDF:lepton`, `PartonLevel:ISR` off / on | envelope | `PYTHIA8/LEP1_qqbar_ISR` |
-| PYTHIA 8.317, Vincia shower | 91.1876 | as above | envelope | `PYTHIA8/LEP1_qqbar_ISR` (`-s 2`) |
-| Herwig 7.1.5 | 91.188 | `NoPDF` + `DoISR No` / `LeptonPDF` + `DoISR Yes` | envelope | `HERWIG7/LEP1_qqbar_ISR` |
-| Sherpa 2.2.6 | 91.188 | `PDF_LIBRARY None` / `BUNCH_1 11; BUNCH_2 -11` | envelope | `SHERPA2/LEP1_qqbar_ISR` |
-| Sherpa 3.0.5 | 91.188 | `YFS: MODE: Off` / `ISR` | study only, not in the envelope | `SHERPA3/LEP1_qqbar_ISR` |
-| PYTHIA 6.1 (archived ALEPH 1994 MC), conversion-cleaned / uncleaned | | | cross-check, drawn only | not here: official ALEPH MC |
+| Generator | sqrt(s) [GeV] | ISR off / on | Folder |
+|---|---|---|---|
+| KKMCee 5 (ISR) + PYTHIA 8.317 (FSR + hadronization) | 91.1876 | `KeyISR` = `xpar(20)` 0 / 1 | `KKMCEE5/LEP1_qqbar_ISR` |
+| KORALZ 4.04 (ISR) + the same PYTHIA 8.317 hadronizer | 91.1876 | `KEYRAD` 0 / 12 | `KORALZ4/LEP1_qqbar_ISR` |
+| PYTHIA 8.317, simple shower | 91.1876 | `PDF:lepton`, `PartonLevel:ISR` off / on | `PYTHIA8/LEP1_qqbar_ISR` |
+| PYTHIA 8.317, Vincia shower | 91.1876 | as above | `PYTHIA8/LEP1_qqbar_ISR` (`-s 2`) |
+| Herwig 7.1.5 | 91.188 | `NoPDF` + `DoISR No` / `LeptonPDF` + `DoISR Yes` | `HERWIG7/LEP1_qqbar_ISR` |
+| Sherpa 2.2.6 | 91.188 | `PDF_LIBRARY None` / `BUNCH_1 11; BUNCH_2 -11` | `SHERPA2/LEP1_qqbar_ISR` |
+| Sherpa 3.0.5 | 91.188 | `YFS: MODE: Off` / `ISR` | `SHERPA3/LEP1_qqbar_ISR` |
 
-Each folder has a `SETUP.md` (build, run, seeds, how the files were checked) and the files that made the samples.
+The archived ALEPH 1994 PYTHIA 6.1 MC is official ALEPH MC and is not here.
+
+Each folder has a `SETUP.md` (how ISR is switched, set up, run, reference values) and the files that made the samples.
 Nothing large is stored here: the setup scripts download every upstream source and check its sha256
 (`common/sources.txt`).
 
@@ -66,6 +65,6 @@ Two ROOT installs are used, deliberately:
   Herwig/Sherpa 2 `hepmcToRoot` and the Sherpa 3 `hepmc3ToRoot`, and at runtime for KKMCee/KORALZ
   (`KKMCEE5/LEP1_qqbar_ISR/prodrun/setup_kkmc_env.sh`).
 
-Some upstream sources need small changes to compile with GCC 11 (const comparators, a missing `<cstdint>`, a
-macOS-only include); they are in `HERWIG7/LEP1_qqbar_ISR/patches/` (ThePEG, Herwig, CLHEP) and
-`SHERPA2/LEP1_qqbar_ISR/patches/` (Sherpa 2.2.6). None changes physics.
+ThePEG 2.1.5, Herwig 7.1.5 and Sherpa 2.2.6 do not compile with GCC 11 as released (non-const comparators, a
+macOS-only include). The fixes are in `HERWIG7/LEP1_qqbar_ISR/patches/` (ThePEG, Herwig) and
+`SHERPA2/LEP1_qqbar_ISR/patches/` (Sherpa 2.2.6); none changes physics.

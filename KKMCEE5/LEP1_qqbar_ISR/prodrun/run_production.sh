@@ -1,7 +1,7 @@
 #!/bin/bash
 # run_production.sh
 # -----------------------------------------------------------------------------
-# Launch the full Phase 2 KKMCee qqbar production:
+# Launch the full KKMCee qqbar production:
 #   10 shards x 500,000 events for ISR state 0  -> 5,000,000 events
 #   10 shards x 500,000 events for ISR state 1  -> 5,000,000 events
 #   = 20 shards total.

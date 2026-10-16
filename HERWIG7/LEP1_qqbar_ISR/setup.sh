@@ -1,7 +1,7 @@
 #!/bin/bash
 # Herwig 7.1.5 and its dependency chain -> $MCF_PREFIX/herwig715, plus the cards and the HepMC2 -> ntuple converter in
 # $MCF_PREFIX/herwig715/run. Every dependency goes into the one prefix, in this order: Boost 1.75.0, CLHEP 2.4.5.1,
-# FastJet 3.3.4, HepMC 2.06.11, LHAPDF 6.3.0 + PDF sets, ThePEG 2.1.5, Herwig 7.1.5. ThePEG, Herwig and CLHEP carry the
+# FastJet 3.3.4, HepMC 2.06.11, LHAPDF 6.3.0 + PDF sets, ThePEG 2.1.5, Herwig 7.1.5. ThePEG and Herwig carry the
 # GCC 11 compile fixes in patches/; Herwig's Looptools Fortran also needs FCFLAGS=-fallow-argument-mismatch with
 # gfortran >= 10. Run with run_production.sh.
 set -euo pipefail
@@ -22,7 +22,6 @@ rm -rf boost_1_75_0 && tar xjf boost_1_75_0.tar.bz2
 (cd boost_1_75_0 && ./bootstrap.sh --prefix="$P" --with-libraries=test,filesystem,system && ./b2 -j "$J" install)
 
 rm -rf 2.4.5.1 && tar xzf clhep-2.4.5.1.tgz
-(cd 2.4.5.1/CLHEP && patch -p1 < "$HERE/patches/CLHEP-2.4.5.1-gcc11.patch")
 cmake -S 2.4.5.1/CLHEP -B "$B/clhep" -DCMAKE_INSTALL_PREFIX="$P" -DCMAKE_BUILD_TYPE=Release
 cmake --build "$B/clhep" -j "$J" && cmake --install "$B/clhep"
 
@@ -54,8 +53,9 @@ rm -rf Herwig-7.1.5 && tar xjf Herwig-7.1.5.tar.bz2
        FCFLAGS=-fallow-argument-mismatch \
   && make -j "$J" && make install)
 
-# Run directory: the cards and the converter (built against the system ROOT, root-config from PATH).
+# Run directory: the cards and the HepMC2 -> ntuple converter (common/hepmcToRoot.cc, system ROOT 6.38.04).
 mkdir -p "$P/run"
-cp "$HERE"/lep1_isr0.in "$HERE"/lep1_isr1.in "$HERE"/hepmcToRoot.cc "$HERE"/Makefile "$P/run/"
-make -C "$P/run"
+cp "$HERE"/lep1_isr0.in "$HERE"/lep1_isr1.in "$P/run/"
+g++ -O2 -std=c++14 -Wall -I"$P/include" $(/usr/bin/root-config --cflags) -o "$P/run/hepmcToRoot" \
+  "$HERE/../../common/hepmcToRoot.cc" -L"$P/lib" -Wl,-rpath,"$P/lib" -lHepMC $(/usr/bin/root-config --libs)
 echo "setup.sh: Herwig 7.1.5 ready; run with $HERE/run_production.sh"
