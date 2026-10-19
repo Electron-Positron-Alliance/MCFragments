@@ -1,0 +1,77 @@
+--- a/Decay/Radiation/QEDRadiationHandler.cc
++++ b/Decay/Radiation/QEDRadiationHandler.cc
+@@ -37,7 +37,7 @@
+    * @param p1 The first ParticleData object
+    * @param p2 The second ParticleData object
+    */
+-  bool operator()(cPDPtr p1, cPDPtr p2) {
++  bool operator()(cPDPtr p1, cPDPtr p2) const {
+     return abs(p1->id()) > abs(p2->id()) ||
+       ( abs(p1->id()) == abs(p2->id()) && p1->id() > p2->id() ) ||
+       ( p1->id() == p2->id() && p1->fullName() > p2->fullName() );
+--- a/Models/General/ModelGenerator.cc
++++ b/Models/General/ModelGenerator.cc
+@@ -451,7 +451,7 @@
+ 
+ namespace {
+   struct DecayModeOrdering {
+-    bool operator()(tcDMPtr m1, tcDMPtr m2) {
++    bool operator()(tcDMPtr m1, tcDMPtr m2) const {
+       if(m1->brat()!=m2->brat()) {
+ 	return m1->brat()>m2->brat();
+       }
+--- a/Models/General/PrototypeVertex.h
++++ b/Models/General/PrototypeVertex.h
+@@ -38,7 +38,7 @@
+    * @param p1 The first ParticleData object
+    * @param p2 The second ParticleData object
+    */
+-  bool operator() (tcPDPtr p1, tcPDPtr p2) {
++  bool operator() (tcPDPtr p1, tcPDPtr p2) const {
+     return abs(p1->id()) > abs(p2->id()) ||
+       ( abs(p1->id()) == abs(p2->id()) && p1->id() > p2->id() ) ||
+       ( p1->id() == p2->id() && p1->fullName() > p2->fullName() );
+--- a/Shower/QTilde/Default/QTildeReconstructor.cc
++++ b/Shower/QTilde/Default/QTildeReconstructor.cc
+@@ -41,7 +41,7 @@
+  */
+ struct JetOrdering {
+ 
+-  bool operator() (const JetKinStruct & j1, const JetKinStruct & j2) {
++  bool operator() (const JetKinStruct & j1, const JetKinStruct & j2) const {
+     Energy diff1 = j1.q.m()-j1.p.m();
+     Energy diff2 = j2.q.m()-j2.p.m();
+     if(diff1!=diff2) {
+--- a/Shower/QTilde/Matching/PowhegShowerHandler.cc
++++ b/Shower/QTilde/Matching/PowhegShowerHandler.cc
+@@ -47,7 +47,7 @@
+ 
+ namespace {
+ struct ParticleOrdering {
+-  bool operator()(tcPDPtr p1, tcPDPtr p2) {
++  bool operator()(tcPDPtr p1, tcPDPtr p2) const {
+     return abs(p1->id()) > abs(p2->id()) ||
+       ( abs(p1->id()) == abs(p2->id()) && p1->id() > p2->id() ) ||
+       ( p1->id() == p2->id() && p1->fullName() > p2->fullName() );
+--- a/Shower/ShowerHandler.cc
++++ b/Shower/ShowerHandler.cc
+@@ -1113,7 +1113,7 @@
+  * @param p2 The second ParticleData object
+  */
+ 
+-bool ShowerHandler::ParticleOrdering::operator() (tcPDPtr p1, tcPDPtr p2) {
++bool ShowerHandler::ParticleOrdering::operator() (tcPDPtr p1, tcPDPtr p2) const {
+   return abs(p1->id()) > abs(p2->id()) ||
+     ( abs(p1->id()) == abs(p2->id()) && p1->id() > p2->id() ) ||
+     ( p1->id() == p2->id() && p1->fullName() > p2->fullName() );
+--- a/Shower/ShowerHandler.h
++++ b/Shower/ShowerHandler.h
+@@ -169,7 +169,7 @@
+   
+   struct ParticleOrdering {
+ 
+-    bool operator() (tcPDPtr p1, tcPDPtr p2);
++    bool operator() (tcPDPtr p1, tcPDPtr p2) const;
+ 
+   };
+   

@@ -1,0 +1,37 @@
+From af2324b97213f078007d0f152b0185a25cc9c233 Mon Sep 17 00:00:00 2001
+From: badeaa3 <badeaa3@gmail.com>
+Date: Mon, 19 Oct 2026 09:11:58 -0500
+Subject: [PATCH] run_production.sh exits nonzero when a shard fails
+
+xargs reports a failed run_shard.sh (status 123), but the script ignored it and exited 0. It now prints which shard failed and where its log is, lets the other shards finish, and exits with the xargs status.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+---
+ ProdRun/run_production.sh | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/ProdRun/run_production.sh b/ProdRun/run_production.sh
+index 77c9626..46a0833 100755
+--- a/ProdRun/run_production.sh
++++ b/ProdRun/run_production.sh
+@@ -1,5 +1,6 @@
+ #!/bin/bash
+ # 10 shards x 500k events per ISR state, MAXPROC concurrent (single-threaded) shards.
++# A failed shard does not stop the others; the script then exits nonzero.
+ set -u
+ : "${MCF_PREFIX:?set MCF_PREFIX to the install root}"
+ PRODDIR=$MCF_PREFIX/koralz/ProdRun
+@@ -8,6 +9,9 @@ MAXPROC=${MAXPROC:-20}
+ mkdir -p "$LOGDIR"
+ echo "run_production: START $(date '+%F %T') maxproc=$MAXPROC"
+ for S in 0 1; do for I in $(seq 0 9); do echo "$S $I"; done; done | xargs -P "$MAXPROC" -n 2 bash -c \
+-  'S="$0"; I="$1"; '"$PRODDIR"'/run_shard.sh "$S" "$I" > '"$LOGDIR"'/shard_isr${S}_${I}.log 2>&1'
++  'S="$0"; I="$1"; L='"$LOGDIR"'/shard_isr${S}_${I}.log
++   '"$PRODDIR"'/run_shard.sh "$S" "$I" > "$L" 2>&1 || { echo "run_production: shard isr${S}_${I} FAILED, see $L"; exit 1; }'
++RC=$?
+ echo "run_production: ALL SHARDS FINISHED $(date '+%F %T')"
+ ls "$MCF_PREFIX"/koralz/qqbar/koralz_isr*.root 2>/dev/null | wc -l
++exit $RC
+-- 
+2.52.0
+

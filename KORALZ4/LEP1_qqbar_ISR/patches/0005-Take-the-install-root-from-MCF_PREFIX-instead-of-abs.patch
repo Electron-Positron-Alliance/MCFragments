@@ -1,0 +1,81 @@
+From 6a4f774de4fd73d57a0f062d29db83d8dc553b0c Mon Sep 17 00:00:00 2001
+From: badeaa3 <badeaa3@gmail.com>
+Date: Fri, 16 Oct 2026 07:30:33 -0500
+Subject: [PATCH 5/5] Take the install root from MCF_PREFIX instead of absolute
+ paths
+
+run_shard.sh, run_production.sh and the ProdRun Makefile now locate KORALZ, KKMCee's hadronizeKKMC and setup_kkmc_env.sh, and HepMC3 under $MCF_PREFIX (the MCFragments install layout). With MCF_PREFIX=/home/badea/code they resolve to the paths the production used.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+---
+ ProdRun/Makefile          |  5 ++++-
+ ProdRun/run_production.sh |  7 ++++---
+ ProdRun/run_shard.sh      | 11 ++++++-----
+ 3 files changed, 14 insertions(+), 9 deletions(-)
+
+diff --git a/ProdRun/Makefile b/ProdRun/Makefile
+index f6455a0..b93b0b9 100644
+--- a/ProdRun/Makefile
++++ b/ProdRun/Makefile
+@@ -1,7 +1,10 @@
+ # Links the KORALZ libraries built by ../build_gfortran.sh with the HepMC3 writer.
+ KZ   = ../korale-exp-final
+ FF   = -O -std=legacy -fno-automatic -finit-local-zero -w
+-HEPMC = /home/badea/code/local
++ifndef MCF_PREFIX
++$(error set MCF_PREFIX to the install root)
++endif
++HEPMC = $(MCF_PREFIX)/local
+ LIBS = $(KZ)/korz_new/lib/glib.a $(KZ)/korz_new/diz4_9/glib.a $(KZ)/korz_new/yfs3-4-0/glib.a \
+        $(KZ)/tauola/lib/glib.a $(KZ)/lib/glib.a $(KZ)/korz_new/nunulib/glib.a $(KZ)/korz_new/ttglib/glib.a
+ 
+diff --git a/ProdRun/run_production.sh b/ProdRun/run_production.sh
+index 71e1475..77c9626 100755
+--- a/ProdRun/run_production.sh
++++ b/ProdRun/run_production.sh
+@@ -1,12 +1,13 @@
+ #!/bin/bash
+ # 10 shards x 500k events per ISR state, MAXPROC concurrent (single-threaded) shards.
+ set -u
+-PRODDIR=/home/badea/code/koralz/ProdRun
+-LOGDIR=/home/badea/code/koralz/qqbar/logs
++: "${MCF_PREFIX:?set MCF_PREFIX to the install root}"
++PRODDIR=$MCF_PREFIX/koralz/ProdRun
++LOGDIR=$MCF_PREFIX/koralz/qqbar/logs
+ MAXPROC=${MAXPROC:-20}
+ mkdir -p "$LOGDIR"
+ echo "run_production: START $(date '+%F %T') maxproc=$MAXPROC"
+ for S in 0 1; do for I in $(seq 0 9); do echo "$S $I"; done; done | xargs -P "$MAXPROC" -n 2 bash -c \
+   'S="$0"; I="$1"; '"$PRODDIR"'/run_shard.sh "$S" "$I" > '"$LOGDIR"'/shard_isr${S}_${I}.log 2>&1'
+ echo "run_production: ALL SHARDS FINISHED $(date '+%F %T')"
+-ls /home/badea/code/koralz/qqbar/koralz_isr*.root 2>/dev/null | wc -l
++ls "$MCF_PREFIX"/koralz/qqbar/koralz_isr*.root 2>/dev/null | wc -l
+diff --git a/ProdRun/run_shard.sh b/ProdRun/run_shard.sh
+index 9f8fd43..efb2894 100755
+--- a/ProdRun/run_shard.sh
++++ b/ProdRun/run_shard.sh
+@@ -1,15 +1,16 @@
+ #!/bin/bash
+ # run_shard.sh ISR_STATE SHARD_INDEX: one KORALZ qqbar shard of NEVENTS, hadronized exactly like the
+-# KKMCee shards (/home/badea/code/kkmcee/ProdRun/run_shard.sh + hadronizeKKMC). KORALZ makes one
++# KKMCee shards ($MCF_PREFIX/kkmcee/ProdRun/run_shard.sh + hadronizeKKMC). KORALZ makes one
+ # flavour per run, so the shard is 5 runs with N_q proportional to the pilot cross sections.
+ set -u
+-PRODDIR=/home/badea/code/koralz/ProdRun
+-OUTDIR=${OUTDIR:-/home/badea/code/koralz/qqbar}
+-HADRONIZE=/home/badea/code/kkmcee/ProdRun/hadronizeKKMC
++: "${MCF_PREFIX:?set MCF_PREFIX to the install root}"
++PRODDIR=$MCF_PREFIX/koralz/ProdRun
++OUTDIR=${OUTDIR:-$MCF_PREFIX/koralz/qqbar}
++HADRONIZE=$MCF_PREFIX/kkmcee/ProdRun/hadronizeKKMC
+ NEVENTS=${NEVENTS:-500000}
+ S="$1"
+ I="$2"
+-source /home/badea/code/kkmcee/ProdRun/setup_kkmc_env.sh
++source "$MCF_PREFIX/kkmcee/ProdRun/setup_kkmc_env.sh"
+ WORK="${WORKROOT:-$PRODDIR}/prod_isr${S}_${I}"
+ OUTROOT="$OUTDIR/koralz_isr${S}_${I}.root"
+ rm -rf "$WORK"
+-- 
+2.52.0
+

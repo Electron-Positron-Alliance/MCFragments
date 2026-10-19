@@ -1,0 +1,50 @@
+********************** QQBAR TEST INPUT: e+e- -> qqbar at MZ, ISR ON ***********
+*  CEEX matrix element, ISR on, FSR off, all 5 quark final states
+BeginX
+********************************************************************************
+*indx_____data______ccccccccc0cccc__________General_____ccc0ccccccccc0ccccccccc0
+    0           5000      NEVT = number of events, OBSOLETE!!!
+* Center-of-mass energy [GeV]
+    1      91.1876e0      CMSene =xpar( 1) Average Center of mass energy [GeV]
+    2        0.000e0      DelEne =xpar( 2) Beam energy spread [GeV]
+*     PrintOut from generator
+    5              1      LevPri =xpar( 5)  PrintOut Level 0,1,2
+    6              1      Ie1Pri =xpar( 6)  PrintOut Start point
+    7              3      Ie2Pri =xpar( 7)  PrintOut End   point
+    9          4.0e0      WtMax =xpar( 9)   Maximum weight for rejection
+   10              1      0/1 = constant/varying weight events
+   12              1      KeyELW=xpar(12) Default is 1, for Dizet
+*****   ISR ON, FSR OFF (only beam ISR photons, no FSR off quarks)
+   20              1      KeyISR=xpar(20)  ISR on
+   21              0      KeyFSR=xpar(21)  FSR off
+   16           1e-5      vvmin =xpar(16)
+   17         0.99e0      vvmax =xpar(17)
+   27              2      KeyINT=xpar(27)  IFI interference, default 2
+********************************************************************************
+**     Define process
+  400             11      KFini = xpar(400) electron beams, do not change
+**     LIST of Final state flavours to be generated randomly: ALL 5 QUARKS
+  401              1     KFfin, d
+  402              1     KFfin, u
+  403              1     KFfin, s
+  404              1     KFfin, c
+  405              1     KFfin, b
+**     leptons OFF
+  411              0     KFfin, electron
+  412              0     KFfin, neutrino electron
+  413              0     KFfin, muon
+  414              0     KFfin, neutrino muon
+  415              0     KFfin, tau
+  416              0     KFfin, neutrino tau
+*********************************************************************************
+*********************** FOAM steering parameters *******************************
+ 3021          20000 FOAM Maximum number of cells
+ 3022              0 FOAM Vopt
+ 3023           5000 FOAM Number of MC samples inside single cell
+ 3024             16 FOAM Number of bins for edge-histogram in cell exploration
+ 3025             50 FOAM Events per bin during buildup
+ 3026              1 FOAM OptRej=1 for constant weights
+ 3027          1.1e0 FOAM Maximum FOAM weight for internal rejection
+ 3028              2 FOAM Drive
+*******************************************************************************
+EndX
