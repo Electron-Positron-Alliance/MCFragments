@@ -4,10 +4,10 @@ Matched to the KKMCee setup (`KKMCEE5/LEP1_qqbar_ISR`) and hadronized by the sam
 4.04, CPC Program Library ACBK_v3_0 on Mendeley Data (`acbk_v3_0.tar.gz` in `common/sources.txt`). Install layout and
 prerequisites: see the top-level `README.md`.
 
-`patches/0001-0005` are all our changes to the CPC tarball, one per change (see each patch's message). Two change the
+`patches/0001-0006` are all our changes to the CPC tarball, one per change (see each patch's message). Two change the
 events: 0002 sets alpha_s(MZ) in the DIZET interface from 0.125 to 0.1202, the value KKMCee feeds DIZET, and 0004
 fixes a PHOTOS overrun that made every KORALZ run identical. The others add the gfortran build, the production
-driver, and the `MCF_PREFIX` paths.
+driver, the `MCF_PREFIX` paths, and a nonzero exit status when a shard fails.
 
 Settings (hard-coded in `MainKoralzHepMC.f`): sqrt(s) = 91.1876 GeV, quark mode `ITFIN=500+q`, inputs matched
 to the KKMCee cards and defaults (MZ, mH = 125.1, mt = 173, DIZET EW with `KEYGSW=4`, `KEYWLB=1`, constituent quark
@@ -19,7 +19,7 @@ ISR on: `KEYRAD=12` (YFS3, ISR only, `KEYYFS=1000001`).
 | File | What it is |
 |---|---|
 | `setup.sh` | unpacks the CPC tarball, applies the patches, builds KORALZ and the production driver |
-| `patches/0001-0005` | all our changes to KORALZ 4.04 (below) |
+| `patches/0001-0006` | all our changes to KORALZ 4.04 (below) |
 
 The patches create `$MCF_PREFIX/koralz/ProdRun/`: `MainKoralzHepMC.f` (the driver, with all settings),
 `hepmcWriter.cc`, `run_shard.sh`, `run_production.sh` and `pilot/sigma_nb.txt`.

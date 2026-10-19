@@ -8,6 +8,7 @@
 #
 # Concurrency is capped at MAXPROC simultaneous shard processes via xargs -P.
 # Each shard is single-threaded. Each shard writes its own log under LOGDIR.
+# A failed shard does not stop the others; the script then exits nonzero.
 # -----------------------------------------------------------------------------
 set -u
 
@@ -28,8 +29,11 @@ for S in 0 1; do
     echo "$S $I"
   done
 done | xargs -P "$MAXPROC" -n 2 bash -c \
-  'S="$0"; I="$1"; '"$PRODDIR"'/run_shard.sh "$S" "$I" > '"$LOGDIR"'/shard_isr${S}_${I}.log 2>&1'
+  'S="$0"; I="$1"; L='"$LOGDIR"'/shard_isr${S}_${I}.log
+   '"$PRODDIR"'/run_shard.sh "$S" "$I" > "$L" 2>&1 || { echo "run_production: shard isr${S}_${I} FAILED, see $L"; exit 1; }'
+RC=$?
 
 echo "run_production: ALL SHARDS FINISHED $(date '+%F %T')"
 echo "run_production: ROOT files:"
 ls -la $MCF_PREFIX/kkmcee/qqbar_v2/kkmcee_isr*.root 2>/dev/null | wc -l
+exit $RC

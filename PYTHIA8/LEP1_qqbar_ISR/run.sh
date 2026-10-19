@@ -31,13 +31,20 @@ BASE=${SEED_BASE[${SHOWER}_${ISR}]}
 
 OUTDIR=$(mkdir -p "$OUTDIR" && cd "$OUTDIR" && pwd)
 
+PIDS=()
 for i in $(seq 0 $((NJOBS - 1))); do
     while [ "$(jobs -rp | wc -l)" -ge "$MAXPAR" ]; do wait -n; done
     OUT="${OUTDIR}/pythia8317_${TAG}isr${ISR}_${i}.root"
     LOG="${OUTDIR}/pythia8317_${TAG}isr${ISR}_${i}.log"
     # main304 finds libpythia8 through the relative rpath ../lib, so it runs from examples/.
     (cd "$PYTHIA/examples" && exec ./main304 -o "$OUT" -n "$NEVT" -i "$ISR" -s "$SHOWER" -r $((BASE + i + 1))) > "$LOG" 2>&1 &
+    PIDS+=($!)
 done
 
-wait
+# A failed shard does not stop the others; the script then exits nonzero.
+RC=0
+for i in "${!PIDS[@]}"; do
+    wait "${PIDS[$i]}" || { echo "Shard $i FAILED, see ${OUTDIR}/pythia8317_${TAG}isr${ISR}_${i}.log"; RC=1; }
+done
 echo "All jobs finished."
+exit $RC
