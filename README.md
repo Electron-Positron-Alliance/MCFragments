@@ -64,8 +64,8 @@ HepMC3 is used by KKMCee, KORALZ and Sherpa 3; PHOTOS++ by KKMCee.
 
 RHEL 9.8 (x86_64), GCC/gfortran 11.5.0; other platforms are untested. System packages used: `gcc gcc-c++
 gcc-gfortran make cmake autoconf automake libtool git curl tar bzip2 xz patch sqlite-devel gsl-devel zlib-devel`,
-and ROOT 6.38.04 from EPEL (`dnf install root`; `root-6.38.04-5.el9` was used). Building Sherpa 3 also needs network
-access, because its build fetches libzip v1.9.2 from GitHub.
+and the ROOT 6.38.04 system package below. Building Sherpa 3 also needs network access, because its build fetches
+libzip v1.9.2 from GitHub.
 
 Two ROOT installs are used, deliberately:
 - ROOT 6.36.04 binary release (`$MCF_PREFIX/root`): `root-config` on PATH when building PYTHIA 8.317, KKMCee and
@@ -73,6 +73,21 @@ Two ROOT installs are used, deliberately:
 - ROOT 6.38.04 system package (`/usr/lib64/root`, `/usr/bin/root-config`): used to build `hadronizeKKMC`, the
   Herwig/Sherpa 2 `hepmcToRoot` and the Sherpa 3 `hepmc3ToRoot`, and at runtime for KKMCee/KORALZ
   (`KKMCEE5/LEP1_qqbar_ISR/prodrun/setup_kkmc_env.sh`).
+
+The system ROOT must be the exact EPEL build the production ran on, `root-6.38.04-5.el9`: KKMCee's events depend on
+the ROOT libraries it runs against: run against ROOT 6.36.04, or rebuilt for the root.cern binary of 6.38.04, it
+gives a different event sequence, and the production binary crashes on the root.cern 6.38.04 libraries. EPEL itself
+now ships a newer ROOT, so `dnf install root` is not enough. The 32 packages of that build are in
+`common/sources.txt` (from Fedora's build system Koji, with sha256):
+```sh
+common/fetch.sh $(awk '/^root.*-6\.38\.04-5\.el9\./ {print $1}' common/sources.txt)
+sudo dnf install epel-release && sudo dnf config-manager --set-enabled crb    # for their dependencies
+sudo dnf install $MCF_PREFIX/src/root*-6.38.04-5.el9.*.rpm
+```
+Keep `dnf update` from replacing them (for example `sudo dnf versionlock add 'root*'`, from
+`python3-dnf-plugin-versionlock`). The other samples do not depend on the ROOT build: PYTHIA built with ROOT 6.36.04
+or the root.cern 6.38.04 binary, and the KORALZ chain and Herwig/Sherpa converters run on any of the three, gave
+identical ntuples.
 
 ThePEG 2.1.5, Herwig 7.1.5 and Sherpa 2.2.6 do not compile with GCC 11 as released (non-const comparators, a
 macOS-only include). The fixes are in `HERWIG7/LEP1_qqbar_ISR/patches/` (ThePEG, Herwig) and
