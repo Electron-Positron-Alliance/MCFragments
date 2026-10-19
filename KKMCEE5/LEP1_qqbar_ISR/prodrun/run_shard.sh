@@ -35,7 +35,7 @@ TMPHEP="$WORK/kkmcee_isr${S}_${I}.hepmc3"
 OUTROOT="$OUTDIR/kkmcee_isr${S}_${I}.root"
 
 rm -rf "$WORK"
-mkdir -p "$WORK"
+mkdir -p "$WORK" "$OUTDIR"
 cd "$WORK" || exit 99
 
 # Cards: defaults + per-ISR pro.input (unweighted, KeyWgt=0) + the 5-quark DIZET table from workQQ2_dizet.
