@@ -9,6 +9,20 @@ KKMCee is off (`xpar(21)=0`); PYTHIA does it. Events are unweighted (`xpar(10)=0
 DIZET electroweak table that every shard reads. `prodrun/hadronizeKKMC.cc` does the PYTHIA 8.317 FSR and
 hadronization (default Monash tune) of the KKMCee and KORALZ events.
 
+## Files
+
+| File | What it is |
+|---|---|
+| `setup.sh` | clones and builds KKMCee, builds `MainHepMC` and `hadronizeKKMC`, makes the DIZET table |
+| `prodrun/workQQ2_isr0/pro.input`, `prodrun/workQQ2_isr1/pro.input` | the production cards (ISR off / on) |
+| `prodrun/workQQ2_dizet/pro.input` | the card for the DIZET electroweak table |
+| `prodrun/MainHepMC.cxx` | KKMCee -> HepMC3 driver (seed from `KKMC_SEED`) |
+| `prodrun/hadronizeKKMC.cc` | PYTHIA 8.317 FSR + hadronization of the KKMCee and KORALZ events, writes the ntuple |
+| `prodrun/run_shard.sh`, `prodrun/run_production.sh` | one shard / all 20 shards |
+| `prodrun/setup_kkmc_env.sh` | runtime environment, sourced by the run scripts |
+
+`setup.sh` copies `prodrun/` into `$MCF_PREFIX/kkmcee/ProdRun/`, where the run scripts are used.
+
 ## Set up
 
 ```sh
@@ -40,6 +54,6 @@ OUTDIR=$PWD/ref NEVENTS=1000 $MCF_PREFIX/kkmcee/ProdRun/run_shard.sh 0 0    # an
 root -l -b -q 'common/summarize.C("ref/kkmcee_isr0_0.root")'
 ```
 ```
-kkmcee_isr0_0  events 1000  thrust(event 0) 0.887663  <thrust> 0.932869  <nParticle> 109.7500  <sum isCharged> 37.6390
-kkmcee_isr1_0  events 1000  thrust(event 0) 0.875025  <thrust> 0.928410  <nParticle> 111.0210  <sum isCharged> 37.6980
+kkmcee_isr0_0             events 1000  thrust(event 0) 0.887663  <thrust> 0.932869  <nParticle> 109.7500  <sum isCharged> 37.6390
+kkmcee_isr1_0             events 1000  thrust(event 0) 0.875025  <thrust> 0.928410  <nParticle> 111.0210  <sum isCharged> 37.6980
 ```

@@ -10,6 +10,16 @@ Cards: `Run_isr0.yaml`, `Run_isr1.yaml`. ISR off: `YFS: MODE: Off`; ISR on: `YFS
 HepMC3 (`HEPMC3_IO_TYPE: 0`), because the HepMC2 output contains `-nan` values on which the HepMC2 reader silently
 stops. `hepmc3ToRoot.cc` is the HepMC3 port of `common/hepmcToRoot.cc`, writing the same `tgenBefore` tree.
 
+## Files
+
+| File | What it is |
+|---|---|
+| `Run_isr0.yaml`, `Run_isr1.yaml` | the cards (ISR off / on) |
+| `setup.sh` | downloads and builds Sherpa 3.0.5, the keep-all library and `hepmc3ToRoot` |
+| `run_shard.sh`, `run_production.sh` | one shard / all 20 standard shards |
+| `hepmc3ToRoot.cc` | HepMC3 -> ntuple converter |
+| `keepall_beamblob_tag.patch` | the ISR-on keep-all variant (below) |
+
 ## Set up
 
 ```sh

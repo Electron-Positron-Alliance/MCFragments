@@ -5,6 +5,16 @@ Cards: `lep1_isr0.in`, `lep1_isr1.in`. ISR off: `NoPDF` for e+/e- + `ShowerHandl
 is `common/hepmcToRoot.cc`, shared with `SHERPA2/LEP1_qqbar_ISR`. Install layout and prerequisites: see the top-level
 `README.md`.
 
+## Files
+
+| File | What it is |
+|---|---|
+| `lep1_isr0.in`, `lep1_isr1.in` | the cards (ISR off / on) |
+| `setup.sh` | downloads and builds Herwig 7.1.5 and all its dependencies, makes the run directory |
+| `run_production.sh` | runs all 20 jobs, or a subset |
+| `env.sh` | runtime environment, sourced by the scripts |
+| `patches/` | GCC 11 compile fixes for ThePEG and Herwig |
+
 ## Set up
 
 ```sh
@@ -39,6 +49,6 @@ NEVENTS=1000 SEEDS=1 HERWIG7/LEP1_qqbar_ISR/run_production.sh
 root -l -b -q "common/summarize.C(\"$MCF_PREFIX/herwig715/run/herwig715_isr0_0.root\")"
 ```
 ```
-herwig715_isr0_0  events 1000  thrust(event 0) 0.976836  <thrust> 0.930593  <nParticle> 105.3160  <sum isCharged> 40.3450
-herwig715_isr1_0  events 1000  thrust(event 0) 0.981746  <thrust> 0.933084  <nParticle> 110.4750  <sum isCharged> 44.0020
+herwig715_isr0_0          events 1000  thrust(event 0) 0.976836  <thrust> 0.930593  <nParticle> 105.3160  <sum isCharged> 40.3450
+herwig715_isr1_0          events 1000  thrust(event 0) 0.981746  <thrust> 0.933084  <nParticle> 110.4750  <sum isCharged> 44.0020
 ```

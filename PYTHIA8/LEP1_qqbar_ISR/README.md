@@ -11,6 +11,14 @@ Vincia has no separate card: `-s 2` sets `PartonShowers:Model = 2` in `main304.c
 that this is the only setting that differs from the default-shower samples (Vincia itself switches on
 `TimeShower:interleaveResDec`).
 
+## Files
+
+| File | What it is |
+|---|---|
+| `main304.cc` | the generator program: all settings, the event loop and the `tgenBefore` ntuple |
+| `setup.sh` | downloads and builds PYTHIA 8.317 (with ROOT) and `main304` |
+| `run.sh` | runs N shards of one shower / ISR combination |
+
 ## Set up
 
 ```sh

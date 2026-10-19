@@ -1,11 +1,17 @@
 # MCFragments
 Contains the MC fragments utilized to generate simulations used by the EPA. 
 
-## LEP1 e+e- -> qqbar with QED ISR on/off (`*/LEP1_qqbar_ISR/`)
+## LEP1 e+e- -> qqbar with initial-state radiation on/off (`*/LEP1_qqbar_ISR/`)
 
 Paired ISR-off (`isr0`) / ISR-on (`isr1`) samples of e+e- -> qqbar (5 flavours) at the Z pole, used for the ALEPH
 thrust QED ISR correction C_ISR = (ISR off) / (ISR on). Each sample is 10 shards x 500k events per ISR state, written
 as a `tgenBefore` ntuple with the branch layout of `PYTHIA8/LEP1_qqbar_ISR/main304.cc`.
+
+ISR (initial-state radiation) here means QED photon emission from the incoming e+ and e-, which lowers the energy of
+the hard collision. Within each pair only ISR is switched; final-state radiation stays at each generator's defaults
+and is the same in both samples. In PYTHIA (also the FSR and hadronization step of KKMCee and KORALZ) this includes
+photon splittings gamma -> l+l- in the final-state shower: `TimeShower:nGammaToLepton` keeps its default, 3 (e, mu,
+tau).
 
 | Generator | sqrt(s) [GeV] | ISR off / on | Folder |
 |---|---|---|---|
@@ -19,13 +25,14 @@ as a `tgenBefore` ntuple with the branch layout of `PYTHIA8/LEP1_qqbar_ISR/main3
 
 The archived ALEPH 1994 PYTHIA 6.1 MC is official ALEPH MC and is not here.
 
-Each folder has a `SETUP.md` (how ISR is switched, set up, run, reference values) and the files that made the samples.
+Each folder has a `README.md` (files, how ISR is switched, set up, run, reference values) and the files that made the
+samples.
 Nothing large is stored here: the setup scripts download every upstream source and check its sha256
 (`common/sources.txt`).
 
 ### Install layout
 
-Everything installs under one root, `MCF_PREFIX` (any writable directory). Downloads go
+Everything installs under one root, `MCF_PREFIX` (an absolute path to any writable directory). Downloads go
 to `$MCF_PREFIX/src`. Our production used `MCF_PREFIX=/home/badea/code`, except that ROOT 6.36.04 sat in
 `/home/badea/root` rather than `$MCF_PREFIX/root`.
 
@@ -35,20 +42,22 @@ to `$MCF_PREFIX/src`. Our production used `MCF_PREFIX=/home/badea/code`, except 
 | `$MCF_PREFIX/local` | HepMC3 3.2.5 | `common/setup_hepmc3.sh` |
 | `$MCF_PREFIX/local/photos` | PHOTOS++ 3.64 | `common/setup_photospp.sh` (after HepMC3) |
 
-Set up everything, in this order (each `setup.sh` starts from scratch in its own directory under `$MCF_PREFIX`):
+No generator needs to be installed beforehand: each `setup.sh` downloads its generator and every library it needs
+and builds them. Only the system packages under "Platform and prerequisites" must already be there. Set up
+everything, in this order (each `setup.sh` starts from scratch in its own directory under `$MCF_PREFIX`):
 ```sh
 export MCF_PREFIX=$HOME/mcf MCF_JOBS=8      # MCF_JOBS: parallel build jobs (default: all cores)
-common/setup_root.sh && common/setup_hepmc3.sh && common/setup_photospp.sh
-PYTHIA8/LEP1_qqbar_ISR/setup.sh             # needs ROOT 6.36.04
-KKMCEE5/LEP1_qqbar_ISR/setup.sh             # needs ROOT 6.36.04, HepMC3, PHOTOS++, PYTHIA 8
-KORALZ4/LEP1_qqbar_ISR/setup.sh             # needs HepMC3 and KKMCee (its hadronizer)
-HERWIG7/LEP1_qqbar_ISR/setup.sh             # self-contained
-SHERPA2/LEP1_qqbar_ISR/setup.sh             # self-contained
-SHERPA3/LEP1_qqbar_ISR/setup.sh             # needs HepMC3
+common/setup_root.sh && common/setup_hepmc3.sh && common/setup_photospp.sh   # ROOT 6.36.04, HepMC3, PHOTOS++
+PYTHIA8/LEP1_qqbar_ISR/setup.sh             # builds PYTHIA 8.317 (with ROOT; no jet finder is used) and main304
+KKMCEE5/LEP1_qqbar_ISR/setup.sh             # builds KKMCee and its hadronizer; uses the ROOT, HepMC3, PHOTOS++, PYTHIA above
+KORALZ4/LEP1_qqbar_ISR/setup.sh             # builds KORALZ 4.04; uses HepMC3 and the KKMCee hadronizer
+HERWIG7/LEP1_qqbar_ISR/setup.sh             # builds Herwig 7.1.5 and all its dependencies (Boost, CLHEP, FastJet, HepMC2, LHAPDF, ThePEG)
+SHERPA2/LEP1_qqbar_ISR/setup.sh             # builds Sherpa 2.2.6 and all its dependencies
+SHERPA3/LEP1_qqbar_ISR/setup.sh             # builds Sherpa 3.0.5; uses HepMC3
 ```
-Each `SETUP.md` then gives the production command and reference values: `common/summarize.C` prints a few numbers for
-a 1000-event check run, to compare with the ones listed there. A complete install of all generators took 7.3 GB on
-the validation machine, 4.5 GB of it unpacked sources and build trees in `$MCF_PREFIX/src`.
+Each folder's `README.md` then gives the production command and reference values: `common/summarize.C` prints a
+few numbers for a 1000-event check run, to compare with the lines listed there. A complete install of all generators
+took 7.3 GB on the validation machine, 4.5 GB of it unpacked sources and build trees in `$MCF_PREFIX/src`.
 HepMC3 is used by KKMCee, KORALZ and Sherpa 3; PHOTOS++ by KKMCee.
 
 ### Platform and prerequisites

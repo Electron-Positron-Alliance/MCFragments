@@ -6,6 +6,16 @@ acts on decays only, so it does not add ISR here. sqrt(s) = 91.188 GeV. The HepM
 `common/hepmcToRoot.cc`, shared with `HERWIG7/LEP1_qqbar_ISR`. Install layout and prerequisites: see the top-level
 `README.md`.
 
+## Files
+
+| File | What it is |
+|---|---|
+| `Run_isr0.dat`, `Run_isr1.dat` | the cards (ISR off / on) |
+| `setup.sh` | downloads and builds Sherpa 2.2.6 and all its dependencies, makes the run directory |
+| `run_production.sh` | runs all 20 jobs, or a subset |
+| `env.sh` | runtime environment, sourced by the scripts |
+| `patches/` | GCC 11 compile fix for Sherpa |
+
 ## Set up
 
 ```sh
@@ -46,6 +56,6 @@ NEVENTS=1000 SEEDS=1 SHERPA2/LEP1_qqbar_ISR/run_production.sh
 root -l -b -q "common/summarize.C(\"$MCF_PREFIX/sherpa226/run/sherpa226_isr0_0.root\")"
 ```
 ```
-sherpa226_isr0_0  events 1000  thrust(event 0) 0.968882  <thrust> 0.935914  <nParticle> 87.6440  <sum isCharged> 36.2830
-sherpa226_isr1_0  events 1000  thrust(event 0) 0.942853  <thrust> 0.933481  <nParticle> 90.7430  <sum isCharged> 36.4250
+sherpa226_isr0_0          events 1000  thrust(event 0) 0.968882  <thrust> 0.935914  <nParticle> 87.6440  <sum isCharged> 36.2830
+sherpa226_isr1_0          events 1000  thrust(event 0) 0.942853  <thrust> 0.933481  <nParticle> 90.7430  <sum isCharged> 36.4250
 ```
